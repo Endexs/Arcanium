@@ -1,0 +1,37 @@
+# Friction Log — <project-name>
+
+Running list of moments where the skills package failed you. Don't fix mid-project — just capture. Process during the end-of-project refinement ritual.
+
+## Format
+
+One line per friction. Include enough context to remember what happened. Tag with the suspected skill or category.
+
+```
+- [DATE] [tag] <one-line description of what went wrong>
+```
+
+Tags can be:
+- `[missing-skill]` — no skill addressed this
+- `[vague-skill]` — skill existed but wasn't sharp enough
+- `[skill-conflict]` — two skills gave contradictory guidance
+- `[skill-overhead]` — skill applied but cost more than it saved
+- `[agent-drift]` — agent ignored or worked around a skill
+
+---
+
+## Entries
+
+(Add as you go. Don't worry about organizing — process happens later.)
+
+- [2026-MM-DD] [missing-skill] <example: implementer added retry-with-backoff the plan didn't ask for; no skill against scope creep on infrastructure code>
+- [2026-MM-DD] [vague-skill] <example: defensive-defaults says "timeouts on external calls" but didn't catch the missing DB query timeout>
+- [2026-MM-DD] [skill-conflict] <example: boring-tech said SQLite, but spec required multi-process write; need a "when not to" branch>
+- ...
+
+---
+
+## Processed?
+
+- [ ] Each entry reviewed during end-of-project refinement
+- [ ] Actionable items copied into retrospective's "Friction log review" section
+- [ ] Noise/one-offs marked or deleted

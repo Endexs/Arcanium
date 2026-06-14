@@ -1,0 +1,113 @@
+# Retrospective: <project-name>
+
+**Dates**: <start-date> → <ship-date or abandon-date>
+**Skills package version used**: <e.g., v0.1.0 or commit hash>
+**Outcome**: shipped | abandoned | pivoted
+**Stack**: <language, framework, key dependencies>
+
+---
+
+## TL;DR
+<2-3 sentences. What did you build, did it ship, what's the one biggest lesson.>
+
+---
+
+## What worked
+
+Skills or practices that prevented bugs, sped you up, or made decisions clearer.
+Be specific — name the skill and the moment it paid off.
+
+- **`<skill-name>`** — <what it caught or prevented, ideally with a specific example>
+- ...
+
+---
+
+## What failed
+
+Bugs that shipped despite the skills. Friction the skills didn't address.
+Decisions that turned out wrong. Be honest; this is the most valuable section.
+
+- **<failure 1>** — <what happened, what should have caught it>
+- ...
+
+---
+
+## Bugs caught after shipping
+
+For each: which skill *would have* caught it? Did that skill exist?
+Why didn't it fire?
+
+| Bug | Skill that should have caught it | Existed? | Why it didn't fire |
+|-----|----------------------------------|----------|--------------------|
+| <bug 1> | `<skill>` | Yes/No | <root cause> |
+| ... | | | |
+
+---
+
+## Friction log review
+
+(Copy actionable items from `friction.md` here. Discard noise.)
+
+- <friction 1 — what change in skills would have prevented it>
+- ...
+
+---
+
+## Skills changes proposed
+
+This is the bridge from "what happened" to "what changes." If this section is
+empty and the project had any failures, you're not looking hard enough.
+
+### New skills
+- **`<category>/<name>`** — <one-sentence why; reference specific incident>
+
+### Modify existing
+- **`<skill-name>`** — <what to sharpen or add; reference specific incident>
+
+### Delete
+- **`<skill-name>`** — <why it didn't pull its weight in this project>
+
+---
+
+## Time spent
+
+Rough numbers — don't over-engineer the tracking.
+
+- **Total dev hours**: <number>
+- **Hours saved by skills** (estimate): <number>
+- **Hours spent on skill ceremony** (estimate): <number>
+- **Net**: <saved - ceremony>
+
+If ceremony > saved consistently across projects, the package is too heavy.
+If saved >> ceremony, you might be under-applying skills.
+
+---
+
+## What I'd do differently next project
+
+Independent of skill changes — what habits or decisions would you change?
+This captures lessons that aren't yet skills but might become skills.
+
+- ...
+
+---
+
+## Notes for future me
+
+Stuff that doesn't fit the categories above but is worth remembering.
+A year from now, what would past-you want to tell future-you?
+
+- ...
+
+---
+
+## Refinement ritual completed?
+
+- [ ] Bug archaeology done (30 min)
+- [ ] Friction audit done (30 min)
+- [ ] Skill files updated and committed
+- [ ] CHANGELOG.md updated with version bump
+- [ ] VERSION file bumped
+- [ ] Validated changes against 3 real bugs from this project
+
+If any box is unchecked, the retrospective isn't done.

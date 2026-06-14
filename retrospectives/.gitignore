@@ -1,0 +1,16 @@
+# Retrospectives are LOCAL-ONLY by default.
+#
+# Per-project retros often contain sensitive context: client names, business
+# reasoning, internal bugs, candid self-assessment. The CHANGELOG references
+# retros by filename so the trail is visible even when the documents aren't.
+#
+# Exceptions (tracked in git):
+# - README.md                    explains the convention
+# - 2026-06-llm-gateway.md       project-zero example showing what good looks like
+#
+# To make a future retrospective public, remove its filename from this gitignore
+# (add a "!filename.md" line below the *.md rule).
+
+*.md
+!README.md
+!2026-06-llm-gateway.md

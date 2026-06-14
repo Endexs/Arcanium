@@ -1,0 +1,110 @@
+# <Project Name> — System Specification
+
+> This file is the source of truth. Code serves this spec, not the other way around.
+> Update this document BEFORE changing implementation. Version-controlled like code.
+
+---
+
+## 1. Purpose & Business Intent
+
+### What does this system do?
+<One paragraph. Concrete, not aspirational.>
+
+### Who is it for?
+<Describe the user. Be specific. "Solo developers" or "small marketing teams," not "everyone.">
+
+### Why does it exist?
+- <Bullet 1: a specific problem you're solving>
+- <Bullet 2>
+- <Bullet 3>
+
+---
+
+## 2. User-Facing Interface
+
+(Describe the CLI commands, API endpoints, or UI screens at a high level. Show example commands or requests.)
+
+```
+example command
+example output
+```
+
+---
+
+## 3. Data Model
+
+(Describe the main entities. One section per table or resource.)
+
+### users
+| Field | Type | Notes |
+|-------|------|-------|
+| id | uuid | primary key |
+| email | text | unique, NOT NULL |
+| created_at | timestamp | NOT NULL |
+
+### sessions
+...
+
+---
+
+## 4. Error Handling
+
+| Scenario | Behavior | Exit code / Status |
+|----------|----------|--------------------|
+| <scenario 1> | <what happens> | <code> |
+| <scenario 2> | <what happens> | <code> |
+
+---
+
+## 5. Constraints & Non-Goals
+
+### Constraints
+- <e.g., Python 3.11+>
+- <e.g., must run on a $5/mo VPS>
+- <e.g., zero downtime deploys not required for v1>
+
+### Non-Goals (explicitly out of scope)
+- <thing 1 — be specific about what's NOT being built>
+- <thing 2>
+- <thing 3>
+
+The non-goals section is as important as the goals. It prevents scope creep.
+
+---
+
+## 6. Testing Strategy
+
+| Layer | What it covers | Tools |
+|-------|----------------|-------|
+| Unit | <e.g., business logic functions> | pytest |
+| Integration | <e.g., DB + service layer> | pytest + fixtures |
+| E2E | <e.g., full CLI invocation> | <tool> |
+
+### Critical test cases
+- <test case 1>
+- <test case 2>
+
+---
+
+## 7+. Feature Sections (added per phase)
+
+(As you add features, append a numbered section per feature. Include: purpose,
+interface, data model changes, error handling, test additions.)
+
+### 7. <First feature name>
+
+#### Purpose
+<one paragraph>
+
+#### Interface
+<commands, endpoints, or UI elements>
+
+#### Data model changes
+<new tables, new columns>
+
+#### Error handling additions
+<new rows for the error table>
+
+#### Testing additions
+- <new test 1>
+- <new test 2>

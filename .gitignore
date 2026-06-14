@@ -1,0 +1,17 @@
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor swap files / IDE settings
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Python bytecode (in case any scripts are added later)
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/

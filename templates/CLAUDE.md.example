@@ -1,0 +1,72 @@
+# Project: <your-project-name>
+
+## Quick facts
+- **What this is**: <one sentence>
+- **Who it's for**: <one sentence>
+- **Status**: pre-launch | v1 | post-launch
+- **Stack**: <language, framework, database, hosting>
+
+## Active skills
+
+This project uses the following skills from `skills/` (or `~/.claude/skills/`):
+
+### Always active
+- `workflow/spec-first` — spec.md is source of truth
+- `engineering/defensive-defaults` — validate, parameterize, timeout, log
+- `engineering/preserve-existing` — don't wholesale rewrite files
+- `engineering/disable-flag-both-paths` — both read and write paths
+- `quality/non-negotiable-paths` — auth/money/data always full pipeline
+
+### Active for medium+ changes
+- `workflow/decision-log` — surface decisions with confidence + reversibility
+- `workflow/scope-cut-list` — every plan lists what was excluded
+- `workflow/agent-journal` — reflection after each multi-step run
+- `quality/good-enough-rubric` — five-question review, not perfectionism
+- `quality/adversarial-review` — separate agent hunts for bugs
+
+### Active for large features (>6 files)
+- `process/split-run-implementation` — partition by dependency
+
+## Project-specific overrides
+
+(Use this section to override skill defaults for your project. Examples:)
+
+- We use Postgres from day one because we have multi-machine deployment.
+- Auth is handled by Clerk; do NOT roll custom auth.
+- All money flows go through Stripe; never store card data.
+- Background jobs use Sidekiq; do NOT add Celery or RQ.
+
+## File locations
+- **Spec**: `spec/spec.md`
+- **Plans**: `agents/planner/`
+- **Implementer output**: `agents/implementer/`
+- **Reviews**: `agents/reviewer/`
+- **Journal/retrospectives**: `journal/`
+
+## Workflow
+
+### For small changes (1-3 files)
+1. Write or update the spec section
+2. Single agent call: plan + implement together
+3. Run tests
+4. Commit
+
+### For medium changes (4-8 files)
+1. Update spec
+2. Planner agent → plan.md with decisions + scope cut list
+3. Implementer agent → output.md
+4. Adversarial reviewer → review.md
+5. Apply fixes for Critical/Major findings
+6. Commit
+7. Append to retrospective if any pattern emerged
+
+### For large changes (>8 files)
+Same as medium, but with split-run partitioning per `process/split-run-implementation.md`.
+
+### For non-negotiable paths
+Full pipeline regardless of size. See `quality/non-negotiable-paths.md`.
+
+## Commit conventions
+- Use commit messages that describe **why**, not just **what**
+- Reference spec sections: `Implements §4.2 password reset`
+- For multi-phase work: include phase number `Phase 3: <description>`
