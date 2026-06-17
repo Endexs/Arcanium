@@ -20,6 +20,7 @@ This project uses the following skills from `skills/` (or `~/.claude/skills/`):
 ### Active for medium+ changes
 - `workflow/decision-log` — surface decisions with confidence + reversibility
 - `workflow/scope-cut-list` — every plan lists what was excluded
+- `workflow/pm-checklist` — when spec sign-off has 5+ PM-owned decisions, use a checklist file
 - `workflow/agent-journal` — reflection after each multi-step run
 - `quality/good-enough-rubric` — five-question review, not perfectionism
 - `quality/adversarial-review` — separate agent hunts for bugs

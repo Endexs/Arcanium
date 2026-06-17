@@ -5,8 +5,9 @@
 # retros by filename so the trail is visible even when the documents aren't.
 #
 # Exceptions (tracked in git):
-# - README.md                    explains the convention
-# - 2026-06-llm-gateway.md       project-zero example showing what good looks like
+# - README.md                                explains the convention
+# - 2026-06-llm-gateway.md                   project-zero example
+# - 2026-06-cortex-phase1-pm-checklist.md    motivates the v0.2.0 pm-checklist skill
 #
 # To make a future retrospective public, remove its filename from this gitignore
 # (add a "!filename.md" line below the *.md rule).
@@ -14,3 +15,4 @@
 *.md
 !README.md
 !2026-06-llm-gateway.md
+!2026-06-cortex-phase1-pm-checklist.md

@@ -47,6 +47,7 @@ Then reference them in your project's CLAUDE.md (see `templates/CLAUDE.md.exampl
 Skills that shape how you and the agent collaborate. Apply these regardless of what you're building.
 
 - **spec-first.md** — write intent before code; spec is the source of truth
+- **pm-checklist.md** — when a spec has 5+ PM-owned decisions, produce a checklist file instead of asking inline
 - **decision-log.md** — agent surfaces decisions with confidence + reversibility
 - **scope-cut-list.md** — every plan explicitly lists features it excluded
 - **agent-journal.md** — agent reflects on its own uncertainty after each run
