@@ -8,6 +8,7 @@
 # - README.md                                explains the convention
 # - 2026-06-llm-gateway.md                   project-zero example
 # - 2026-06-cortex-phase1-pm-checklist.md    motivates the v0.2.0 pm-checklist skill
+# - 2026-06-cortex.md                        motivates the v0.3.0 implementer-handoff + skill-audit skills
 #
 # To make a future retrospective public, remove its filename from this gitignore
 # (add a "!filename.md" line below the *.md rule).
@@ -16,3 +17,4 @@
 !README.md
 !2026-06-llm-gateway.md
 !2026-06-cortex-phase1-pm-checklist.md
+!2026-06-cortex.md
