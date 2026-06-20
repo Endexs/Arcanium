@@ -60,6 +60,26 @@ The reviewer hunts for specific patterns:
 - `if x:` where `x == 0` is a valid value
 - Index calculations on empty collections
 
+**Numerical formulas derived from third-party library metrics**
+- Any line that computes a similarity, distance, probability, or score from a library return value
+- Re-derive the formula from the library docs, not from the implementer's commentary
+- Common traps: cosine vs L2 vs squared L2; log-probability vs probability; loss vs score; degrees vs radians
+- Example: `sqlite-vec` returns squared L2 distance by default — `similarity = 1 - distance` is wrong; `1 - distance/2` is correct for unit vectors
+- Source: Cortex Phase 3 review — the squared-L2 formula bug
+
+**`assert` in non-test code for load-bearing checks**
+- Any `assert` outside of `tests/` that enforces a product-level invariant
+- `assert` is stripped under `python -O`; promotes silently to "no check at all" in optimized builds
+- Should be `raise RuntimeError(...)` or a project-specific exception class
+- See `[[non-negotiable-paths]]` for the rule and rationale
+- Source: Cortex Phase 3 review — source-attribution invariant encoded as `assert`
+
+**Positional CLI arguments that take user prose**
+- Any `@click.argument("query")` (or argparse equivalent) that accepts a user-typed sentence
+- Without `nargs=-1`, unquoted multi-word input becomes "unexpected extra argument"
+- Default fix: `nargs=-1, required=True` + `" ".join(...)` at the top of the function
+- Source: Cortex `lt ask` papercut, caught in first-day real usage
+
 ### Output format
 
 ```markdown

@@ -51,6 +51,24 @@ At the top of the file, explicitly separate **PM ownership** (UX, scope, success
 4. Sync confirmed decisions back into `spec.md` and `CLAUDE.md`
 5. Move to the next phase
 
+### Multi-phase projects: carry-forward and shrinkage
+
+After Phase 1, every subsequent phase's checklist gets a **Carry-forward** section at the top — a one-paragraph summary of decisions from prior phases that still apply. The implementer reads this and treats those items as settled; the user doesn't re-litigate them.
+
+```
+## Carry-forward (from Phase 1)
+- Citation format: `[N]` footnote markers, listed under a `Sources:` block (Section 3.2)
+- Default top-k: 5 (Section 5.1)
+- Source-attribution non-negotiable: every `ok` answer cites ≥1 source (Section 9)
+- Tone: terse over chatty; refuse to fabricate over guess (Section 4.3)
+```
+
+**Why**: Without this, late-phase checklists either (a) silently drop earlier decisions, leaving the implementer guessing, or (b) re-ask them, costing the user attention they already spent. The carry-forward block makes settled decisions explicit and the new checklist visibly shorter.
+
+**Heuristic for shrinkage**: Phase-N checklist should have roughly half the decisions of Phase-(N-1). If Phase 3's checklist is the same length as Phase 1's, something is wrong — either you're re-litigating settled questions, or the spec wasn't really specified up front. Investigate before continuing.
+
+**Source**: Cortex (second-brain RAG) Phase 2–4. Phase 1 checklist had ~25 decisions; Phase 2 had ~12; Phase 3 had ~6; Phase 4 had ~4. The shrinkage came from explicit carry-forward of settled decisions, not from cutting the checklist quality.
+
 ## What this prevents
 - Decision churn during implementation (no "wait, what did we decide about X?")
 - The agent silently making product calls the user owned

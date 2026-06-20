@@ -55,6 +55,25 @@ Only one post-ship bug, found via the manual demo step rather than tests. Sugges
 
 ---
 
+## Skills used this project
+
+(Backfilled for the skill-audit ritual. This project is the founding extraction — every v0.1.0 skill traces here, so the citations list IS the v0.1.0 skill list.)
+
+- workflow/spec-first
+- workflow/decision-log
+- workflow/scope-cut-list
+- workflow/agent-journal
+- workflow/retrospective
+- engineering/defensive-defaults
+- engineering/boring-tech
+- engineering/preserve-existing
+- engineering/disable-flag-both-paths
+- quality/good-enough-rubric
+- quality/adversarial-review
+- quality/non-negotiable-paths
+
+---
+
 ## Skills changes proposed
 
 Since this project is the founding extraction, every skill in v0.1.0 traces here. Listing them with their incident origins:

@@ -111,5 +111,24 @@ You will be tempted to say "this is just a one-line change, I don't need the ful
 
 For non-negotiable paths, the answer is no. One-line changes to auth code are exactly how bugs ship. The cost of the full workflow is hours; the cost of a bug in non-negotiable code is users, money, or both.
 
+## Encoding non-negotiables in code: RuntimeError, not assert
+
+When a non-negotiable is enforced **inside the code itself** — a post-condition that aborts execution if a load-bearing invariant is violated — use `raise RuntimeError(...)` (or a project-specific exception class), never `assert`.
+
+```python
+# WRONG — silently stripped under `python -O`
+assert len(result.sources) >= 1, "ok answer must carry sources"
+
+# RIGHT — survives optimization, fails loudly in production
+if result.status == "ok" and len(result.sources) < 1:
+    raise RuntimeError("non-negotiable violated: 'ok' answer must carry sources")
+```
+
+**Why this matters**: Python's `-O` flag (used by some production deployments and packagers) strips `assert` statements entirely. Code that relies on `assert` for a load-bearing check has *no* check in production. The bug is invisible until it triggers, and it triggers in exactly the environment you can't easily debug.
+
+**Source**: Cortex (second-brain RAG) Phase 3 adversarial review. The source-attribution invariant was originally encoded as `assert`. Opus review flagged it; promoted to `RuntimeError`. The invariant is the architectural guarantee Cortex makes to its user — "every confident answer cites a real source." A stripped assert would have silently removed that guarantee in any deployment that used `-O` or a packager that did the equivalent.
+
+**Apply when**: encoding any invariant in the non-negotiable list above (auth, authz, payment, deletion, etc.) as a runtime check, OR encoding any product-level guarantee whose silent failure would surprise the user. Use `assert` only for development-time sanity checks you'd be okay losing.
+
 ## Anti-pattern
 Adding paths to this list because they feel important. The list should stay short. If everything is non-negotiable, nothing is. Only add paths where a single bug has catastrophic, hard-to-reverse impact.

@@ -53,6 +53,20 @@ Why didn't it fire?
 
 ---
 
+## Skills used this project
+
+(Feeds the aggregate audit per `workflow/skill-audit.md`. One name per line.
+Honesty matters more than completeness — list skills that were actually cited
+in plans/reviews/prompts, composed into CLAUDE.md, or applied implicitly. A
+skill you "should have used but didn't" is NOT a usage citation.)
+
+- workflow/<name>
+- engineering/<name>
+- quality/<name>
+- ...
+
+---
+
 ## Skills changes proposed
 
 This is the bridge from "what happened" to "what changes." If this section is

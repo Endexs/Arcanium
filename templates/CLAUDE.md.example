@@ -18,6 +18,7 @@ This project uses the following skills from `skills/` (or `~/.claude/skills/`):
 - `quality/non-negotiable-paths` — auth/money/data always full pipeline
 
 ### Active for medium+ changes
+- `engineering/implementer-handoff` — before any implementer LLM call, extend prompt with names-in-scope + library-gotchas + max-tokens floor
 - `workflow/decision-log` — surface decisions with confidence + reversibility
 - `workflow/scope-cut-list` — every plan lists what was excluded
 - `workflow/pm-checklist` — when spec sign-off has 5+ PM-owned decisions, use a checklist file

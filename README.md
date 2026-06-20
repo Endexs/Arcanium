@@ -52,6 +52,7 @@ Skills that shape how you and the agent collaborate. Apply these regardless of w
 - **scope-cut-list.md** — every plan explicitly lists features it excluded
 - **agent-journal.md** — agent reflects on its own uncertainty after each run
 - **retrospective.md** — capture failures so they don't repeat across projects
+- **skill-audit.md** — periodic pruning ritual to keep the package slim
 
 ### engineering/ — reflexive code-level conventions
 Defensive patterns the implementer should apply without being asked.
@@ -60,6 +61,7 @@ Defensive patterns the implementer should apply without being asked.
 - **boring-tech.md** — bias toward proven, widely-used choices
 - **preserve-existing.md** — never wholesale rewrite files; preserve undocumented patterns
 - **disable-flag-both-paths.md** — TTL=0, --no-cache, feature flags apply to read AND write
+- **implementer-handoff.md** — pre-handoff prompt blocks: names in scope, library gotchas, output budget
 
 ### quality/ — review and verification standards
 Rubrics the reviewer (or you) apply to judge "is this good enough to ship?"
