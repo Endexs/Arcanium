@@ -10,25 +10,27 @@ This file tells Claude Code (and any sub-agents) how to work on this project. It
 
 ## Active Arcanium skills
 
-Skills live at `/home/developer/projects/solo-dev-agent-skills/`. Read each before you start contributing.
+Skills are vendored into `./skills/` at bootstrap time — fully self-contained, no external path dependency. Read each before you start contributing.
 
 ### Always active
-- `workflow/spec-first` — `spec/spec.md` is the source of truth; update spec before code
-- `engineering/defensive-defaults` — validate inputs, set timeouts, log structured
-- `engineering/preserve-existing` — never wholesale-rewrite files; preserve undocumented patterns
-- `quality/non-negotiable-paths` — auth / money / data deletion always get the full pipeline; load-bearing invariants use `raise RuntimeError(...)`, never `assert`
+- `skills/workflow/spec-first` — `spec/spec.md` is the source of truth; update spec before code
+- `skills/engineering/defensive-defaults` — validate inputs, set timeouts, log structured
+- `skills/engineering/preserve-existing` — never wholesale-rewrite files; preserve undocumented patterns
+- `skills/quality/non-negotiable-paths` — auth / money / data deletion always get the full pipeline; load-bearing invariants use `raise RuntimeError(...)`, never `assert`
 
 ### Active for medium+ changes
-- `engineering/implementer-handoff` — every implementer LLM call must include Names-in-scope, Library-gotchas, Output-budget blocks
-- `workflow/decision-log` — surface decisions with confidence + reversibility
-- `workflow/scope-cut-list` — every plan explicitly lists features it excluded
-- `workflow/pm-checklist` — when a phase has 5+ PM decisions, produce `agents/planner/pm-checklist.md`
-- `quality/good-enough-rubric` — five-question review, not perfectionism
-- `quality/adversarial-review` — separate agent hunts for bugs (Critical / Major / Minor)
+- `skills/engineering/implementer-handoff` — every implementer LLM call must include Names-in-scope, Library-gotchas, Output-budget blocks
+- `skills/workflow/decision-log` — surface decisions with confidence + reversibility
+- `skills/workflow/scope-cut-list` — every plan explicitly lists features it excluded
+- `skills/workflow/pm-checklist` — when a phase has 5+ PM decisions, produce `agents/planner/pm-checklist.md`
+- `skills/quality/good-enough-rubric` — five-question review, not perfectionism
+- `skills/quality/adversarial-review` — separate agent hunts for bugs (Critical / Major / Minor)
 
 ### Active for end-of-project
-- `workflow/retrospective` — `solo-dev-agent-skills/retrospectives/YYYY-MM-{{PROJECT_SLUG}}.md`
-- `workflow/skill-audit` — list "Skills used this project" in the retrospective
+- `skills/workflow/retrospective` — end-of-project lessons; commit to a public or local Arcanium retrospectives folder
+- `skills/workflow/skill-audit` — list "Skills used this project" in the retrospective
+
+> **Note on skill updates**: Skills are frozen at the version stamped in `skills/README.md`. A central Arcanium update will NOT propagate to this project. To re-sync: run `install.sh --local "$(pwd)" --force` from your Arcanium checkout. Frozen skills are a feature, not a bug — a v0.5.0 change shouldn't retroactively break a project that worked under v0.4.0.
 
 ## Multi-agent pipeline
 

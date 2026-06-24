@@ -29,6 +29,28 @@ After project: <project-name>  (see retrospectives/<file>.md)
 
 ---
 
+## v0.4.1 — 2026-06-24
+After: portability bug surfaced minutes after v0.4.0 shipped.
+
+### Fixed
+- `bin/arcanium-new` now vendors `workflow/`, `engineering/`, and `quality/` into the new project's `skills/` directory, instead of leaving the project pointing at the central Arcanium checkout. Projects bootstrapped before v0.4.1 had a hardcoded path (`/home/developer/projects/solo-dev-agent-skills/`) in their `CLAUDE.md`, which only resolved on the VPS where Arcanium was installed. Cloning the project elsewhere broke the agent's skill load.
+- `starter/CLAUDE.md` updated to reference `skills/<category>/<name>` (project-relative) instead of the central absolute path.
+- A `skills/README.md` is generated at bootstrap noting the source Arcanium version and the resync command, so future-you can tell which skill release a given project was built against.
+
+### Design note: vendor vs reference
+
+Considered both:
+- **Vendor** (chosen): copy skills into the project at bootstrap; frozen at that version
+- **Reference**: project points at the central Arcanium path
+
+Vendor wins for solo dev on multiple machines because: portable, self-contained on clone, and stable against central updates. The "central updates" win for reference is actually a liability — a v0.5.0 skill change shouldn't retroactively affect a v0.4.x project that was working. `install.sh --local --force` is the explicit resync path for projects that want to pull updates.
+
+### Notes
+- v0.4.0 was viable for ~hours before the user spotted the portability gap. Patch release, not minor — no new features, just a correctness fix.
+- Existing projects bootstrapped under v0.4.0 are NOT auto-migrated. To migrate one: `./install.sh --local /path/to/old-project` then update its `CLAUDE.md` to use `skills/` prefix paths.
+
+---
+
 ## v0.4.0 — 2026-06-24
 After: in-flight observation (not a project retrospective). See "Notes" below.
 

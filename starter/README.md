@@ -22,4 +22,4 @@ pytest -x -q
 
 ## Methodology
 
-Built using the [Arcanium](file:///home/developer/projects/solo-dev-agent-skills/) skills package and the spec-first multi-agent workflow. See `~/notes/new-project-startup-methodology.md` for the full walkthrough.
+Built using the [Arcanium](https://github.com/Endexs/Arcanium) skills package and the spec-first multi-agent workflow. The skills it depends on are vendored into `./skills/` — see `skills/README.md` for the source version.

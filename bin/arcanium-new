@@ -89,6 +89,34 @@ mkdir -p "$(dirname "$TARGET")"
 cp -r "$STARTER" "$TARGET"
 ok "copied starter scaffold to $TARGET"
 
+# ---------- 1b. vendor skills into the project ----------
+# Skills are vendored (not referenced by absolute path) so the project is
+# self-contained — works on any machine, survives being cloned elsewhere,
+# and won't silently break when central Arcanium is updated.
+mkdir -p "$TARGET/skills"
+for category in workflow engineering quality; do
+    if [ -d "$ARC_ROOT/$category" ]; then
+        cp -r "$ARC_ROOT/$category" "$TARGET/skills/"
+    fi
+done
+# Vendor a small marker noting the source version so future-you can tell
+# which Arcanium release these skills came from.
+cat > "$TARGET/skills/README.md" <<EOF
+# Skills (vendored from Arcanium v$VERSION)
+
+These skill files were copied from \`solo-dev-agent-skills\` at bootstrap
+time. They are intentionally frozen at this version — a v0.5.0 change
+to Arcanium will NOT update these files unless you explicitly re-sync.
+
+To re-sync from current Arcanium:
+  \`\`\`
+  $ARC_ROOT/install.sh --local "\$(pwd)" --force
+  \`\`\`
+
+CLAUDE.md references these via \`skills/<category>/<name>\` (relative).
+EOF
+ok "vendored skills/{workflow,engineering,quality}/ from Arcanium v$VERSION"
+
 # ---------- 2. rename {{PROJECT_SLUG_UNDERSCORE}} package directory ----------
 PKG_DIR="$TARGET/src/{{PROJECT_SLUG_UNDERSCORE}}"
 if [ -d "$PKG_DIR" ]; then
