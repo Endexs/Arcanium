@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "{{PROJECT_SLUG}}"
+version = "0.1.0"
+description = "TODO: one-sentence description"
+requires-python = ">=3.11"
+dependencies = [
+    # Add production deps here
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["{{PROJECT_SLUG_UNDERSCORE}}*"]
+exclude = ["tests*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+# Uncomment when you have a CLI entry point:
+# [project.scripts]
+# {{PROJECT_SLUG}} = "{{PROJECT_SLUG_UNDERSCORE}}.cli:cli"

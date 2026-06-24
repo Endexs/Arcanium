@@ -8,13 +8,41 @@ A set of reusable skills extracted from building the LLM Gateway project with a 
 
 ## How to use
 
-Use the included installer (recommended):
+### Starting a new project — `arcanium-new` (recommended)
+
+One command bootstraps an entire project from the canonical `starter/` scaffold:
+
+```bash
+# One-time: put the script on your PATH
+sudo ln -s "$(pwd)/bin/arcanium-new" /usr/local/bin/arcanium-new
+
+# Then, from anywhere:
+arcanium-new hello-rag
+```
+
+What you get at `/home/developer/projects/hello-rag/`:
+- Pre-filled `CLAUDE.md` referencing the active Arcanium skills
+- `spec/spec.md` skeleton with all 9 §-sections
+- `agents/planner/pm-checklist.md` with 10 sections of PM decisions
+- `agents/planner/plan-template.md` with `implementer-handoff` blocks ready to fill
+- `agents/reviewer/review-template.md` with the Critical/Major/Minor structure
+- `.claude/agents/fixer.md` (Haiku subagent for applying review findings)
+- `.claude/bin/ds-send` (direct DeepSeek wrapper, no Python venv dep)
+- `tests/conftest.py`, `pyproject.toml`, `.gitignore`, `src/<package>/__init__.py`
+- A clean `.venv/` with pytest installed
+- `git init` on `main`, one commit
+
+Read `bin/README.md` for full flag reference.
+
+### Adding Arcanium to an existing project — `install.sh`
+
+If you already have a project and want to retrofit the skills into it:
 
 ```bash
 # Install globally to ~/.claude/skills/ (one-time setup)
 ./install.sh
 
-# Or install into a specific project (skills + templates)
+# Or install into a specific existing project (skills + templates)
 ./install.sh --all /path/to/your-project
 
 # Other modes
@@ -28,13 +56,7 @@ The installer is idempotent — re-running skips existing files unless you pass 
 
 ### Manual install
 
-```
-your-new-project/
-├── skills/                 ← copy workflow/ engineering/ quality/ process/ here
-└── CLAUDE.md              ← reference the skills you want active
-```
-
-Or for a global library:
+For a global skills library referenced by all your projects:
 ```
 ~/.claude/skills/          ← copy categorized folders here
 ```

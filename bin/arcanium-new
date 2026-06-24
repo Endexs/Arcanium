@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# arcanium-new — bootstrap a new project from the Arcanium starter scaffold.
+#
+# Usage:
+#   arcanium-new <project-slug> [--name "Display Name"] [--dir <parent>] [--force]
+#
+# Defaults:
+#   --name     derived from slug (kebab → Title Case)
+#   --dir      /home/developer/projects
+#   --force    refuses to overwrite an existing target unless set
+#
+# What it does:
+#   1. Validates slug (lowercase, kebab-case, no spaces)
+#   2. Copies the starter scaffold into <dir>/<slug>/
+#   3. Replaces {{PROJECT_SLUG}}, {{PROJECT_SLUG_UNDERSCORE}}, {{PROJECT_NAME}}, {{TODAY}}
+#   4. Renames the {{PROJECT_SLUG_UNDERSCORE}} src package directory
+#   5. Creates .venv/ and pip-installs dev deps
+#   6. git init + branch -m main + initial commit
+#   7. Prints next-step instructions
+
+set -euo pipefail
+
+# ---------- helpers ----------
+die() { echo "arcanium-new: $*" >&2; exit 1; }
+info() { echo "  $*"; }
+ok() { echo "✓ $*"; }
+
+# Resolve Arcanium repo root from this script's location.
+# Follow symlinks (the script is typically invoked via /usr/local/bin/arcanium-new
+# which links to bin/arcanium-new inside the Arcanium repo).
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
+ARC_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+STARTER="$ARC_ROOT/starter"
+VERSION="$(cat "$ARC_ROOT/VERSION" 2>/dev/null || echo "unknown")"
+
+[ -d "$STARTER" ] || die "starter directory not found at $STARTER"
+
+# ---------- parse args ----------
+SLUG=""
+NAME=""
+PARENT_DIR="/home/developer/projects"
+FORCE=0
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --name)    NAME="$2"; shift 2 ;;
+        --dir)     PARENT_DIR="$2"; shift 2 ;;
+        --force)   FORCE=1; shift ;;
+        --help|-h) sed -n '2,12p' "$0" | sed 's/^# \?//'; exit 0 ;;
+        -*)        die "unknown flag: $1" ;;
+        *)
+            if [ -z "$SLUG" ]; then SLUG="$1"
+            else die "unexpected positional arg: $1"
+            fi
+            shift
+            ;;
+    esac
+done
+
+[ -n "$SLUG" ] || die "missing project slug. Usage: arcanium-new <slug>"
+
+# Validate slug: lowercase letters, digits, hyphens; no leading hyphen.
+if ! [[ "$SLUG" =~ ^[a-z][a-z0-9-]*$ ]]; then
+    die "invalid slug '$SLUG'. Must be lowercase, kebab-case (a-z, 0-9, -). Example: hello-rag"
+fi
+
+# Derive defaults.
+[ -n "$NAME" ] || NAME="$(echo "$SLUG" | sed -E 's/(^|-)([a-z])/\1\U\2/g' | tr '-' ' ')"
+SLUG_UNDERSCORE="${SLUG//-/_}"
+TODAY="$(date +%Y-%m-%d)"
+TARGET="$PARENT_DIR/$SLUG"
+
+# Confirm target.
+if [ -e "$TARGET" ]; then
+    [ "$FORCE" -eq 1 ] || die "target exists: $TARGET (pass --force to overwrite)"
+    info "target exists, --force given; removing..."
+    rm -rf "$TARGET"
+fi
+
+echo "[arcanium-new v$VERSION]"
+info "slug:   $SLUG"
+info "name:   $NAME"
+info "target: $TARGET"
+echo
+
+# ---------- 1. copy starter ----------
+mkdir -p "$(dirname "$TARGET")"
+cp -r "$STARTER" "$TARGET"
+ok "copied starter scaffold to $TARGET"
+
+# ---------- 2. rename {{PROJECT_SLUG_UNDERSCORE}} package directory ----------
+PKG_DIR="$TARGET/src/{{PROJECT_SLUG_UNDERSCORE}}"
+if [ -d "$PKG_DIR" ]; then
+    mv "$PKG_DIR" "$TARGET/src/$SLUG_UNDERSCORE"
+    ok "renamed src/{{PROJECT_SLUG_UNDERSCORE}}/ → src/$SLUG_UNDERSCORE/"
+fi
+
+# ---------- 3. replace placeholders in all text files ----------
+# Restrict to files we know are text; skip binaries by extension.
+find "$TARGET" -type f \
+    \( -name '*.md' -o -name '*.py' -o -name '*.toml' -o -name '*.txt' \
+       -o -name '*.yaml' -o -name '*.yml' -o -name '*.cfg' -o -name '*.ini' \
+       -o -name '*.gitignore' -o -name '.gitignore' -o -name 'Makefile' \
+       -o -name 'ds-send' \) \
+    -print0 | xargs -0 sed -i \
+        -e "s|{{PROJECT_SLUG_UNDERSCORE}}|$SLUG_UNDERSCORE|g" \
+        -e "s|{{PROJECT_SLUG}}|$SLUG|g" \
+        -e "s|{{PROJECT_NAME}}|$NAME|g" \
+        -e "s|{{TODAY}}|$TODAY|g"
+ok "replaced placeholders in scaffold files"
+
+# ---------- 4. venv + dev deps ----------
+cd "$TARGET"
+if command -v python3 >/dev/null 2>&1; then
+    python3 -m venv .venv
+    # shellcheck disable=SC1091
+    source .venv/bin/activate
+    pip install --quiet --upgrade pip
+    pip install --quiet -e ".[dev]" 2>/dev/null || pip install --quiet pytest
+    deactivate
+    ok "created .venv and installed dev deps"
+else
+    info "python3 not found; skipped venv setup"
+fi
+
+# ---------- 5. git init ----------
+git init --quiet
+git branch -m main 2>/dev/null || true
+git add -A
+git -c user.email="${GIT_AUTHOR_EMAIL:-$(git config --global user.email || echo 'noreply@example.com')}" \
+    -c user.name="${GIT_AUTHOR_NAME:-$(git config --global user.name || echo 'arcanium-new')}" \
+    commit -q -m "Initial scaffold from Arcanium v$VERSION
+
+Bootstrapped by arcanium-new. See spec/spec.md and CLAUDE.md
+to start filling in project content."
+ok "initialized git, made initial commit on main"
+
+# ---------- 6. next steps ----------
+cat <<EOF
+
+Next steps:
+  1. cd $TARGET
+  2. Edit spec/spec.md (§1 What this is, §2 User stories)
+  3. Edit agents/planner/pm-checklist.md (fill in your defaults)
+  4. Read CLAUDE.md to confirm the active skills set matches your project
+
+Arcanium reference: $ARC_ROOT
+Skills package version: $VERSION
+
+EOF

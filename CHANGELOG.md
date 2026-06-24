@@ -29,6 +29,26 @@ After project: <project-name>  (see retrospectives/<file>.md)
 
 ---
 
+## v0.4.0 — 2026-06-24
+After: in-flight observation (not a project retrospective). See "Notes" below.
+
+### Added
+- `starter/` — canonical project scaffold copied wholesale into new projects. Contains a pre-filled `CLAUDE.md` with the active-skills set, a 9-section `spec/spec.md` skeleton, a Phase-1 `pm-checklist.md` skeleton, plan and review templates with the v0.3.0 `engineering/implementer-handoff` blocks baked in, `.claude/agents/fixer.md` and `.claude/bin/ds-send` (the Haiku fixer and DeepSeek wrapper from the Cortex project), basic `tests/conftest.py`, and a `pyproject.toml` skeleton. Placeholders: `{{PROJECT_SLUG}}`, `{{PROJECT_SLUG_UNDERSCORE}}`, `{{PROJECT_NAME}}`, `{{TODAY}}`.
+- `bin/arcanium-new` — bootstrap script. `arcanium-new <slug> [--name NAME] [--dir DIR] [--force]` copies `starter/` to the target, substitutes placeholders, renames the `src/{{PROJECT_SLUG_UNDERSCORE}}/` package directory, creates `.venv/`, installs dev deps, `git init`s on `main`, and makes the initial commit. Validates slug as lowercase kebab-case. Refuses to overwrite an existing target unless `--force`.
+- `bin/README.md` — bin/ documentation.
+
+### Modified
+- (none — this release is purely structural; no skill changes)
+
+### Notes
+- This is **not** a release driven by a project retrospective. It's an in-flight observation that the methodology walkthrough we'd been giving to users ("step 1: mkdir, step 2: cp, step 3: ...") was 9 manual steps when it should be one command. Arcanium's purpose is to remove that friction, not just describe it.
+- Why a structural release without a skill change: the existing skills already cover the workflow correctly. The gap was infrastructural — a missing front door. **No retrospective is required to motivate infrastructure** — only to motivate skills, which are process rules. Distinction codified here for the next time this question comes up.
+- The starter pulls forward two artifacts from the Cortex project: `.claude/bin/ds-send` and `.claude/agents/fixer.md`. Both have been validated through 3 implementation phases of Cortex; promoting them from "thing Cortex has" to "thing every Arcanium project starts with" is the natural next step.
+- `bin/arcanium-new` is intentionally bash, not Python. Bootstrapping a Python project from a Python script that requires its own environment is a chicken-and-egg problem; bash + standard utilities works on any POSIX shell with no setup.
+- The `bin/` directory is new in this release. Future Arcanium tooling (e.g., `arcanium-retro` to start a retrospective from the template, `arcanium-audit` to run the 3-project skill audit) would live here.
+
+---
+
 ## v0.3.0 — 2026-06-19
 After project: **Cortex / second-brain-v2** (shipped v1.0.0, 52 tests, 4 phases complete)
 See `retrospectives/2026-06-cortex.md`

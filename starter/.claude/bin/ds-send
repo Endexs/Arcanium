@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+# ds-send — direct call to DeepSeek's OpenAI-compatible chat API.
+#
+# Usage:
+#   ds-send "<prompt>" [--model MODEL] [--max-tokens N] [--system "<system prompt>"] [--temperature T]
+#   ds-send --from-stdin [...flags...] < prompt.md
+#
+# Defaults:
+#   --model         deepseek-v4-pro
+#   --max-tokens    4096   (V4 thinking mode burns ~50 tokens before output; smaller starves the response)
+#   --temperature   0.2    (deterministic-leaning for code generation)
+#
+# Output:
+#   Raw JSON from DeepSeek (OpenAI format). Extract content with:
+#     jq -r '.choices[0].message.content'
+#
+# Requires:
+#   DEEPSEEK_API_KEY  in environment
+#   curl, jq          on PATH
+#
+# Exit codes:
+#   0  HTTP 200, JSON returned on stdout
+#   1  user-actionable error (missing key, bad args, HTTP non-200)
+#   2  setup error (curl or jq not installed)
+
+set -euo pipefail
+
+# --- preflight -----------------------------------------------------------
+
+if ! command -v curl >/dev/null 2>&1; then
+  echo "ds-send: curl not found on PATH" >&2
+  exit 2
+fi
+if ! command -v jq >/dev/null 2>&1; then
+  echo "ds-send: jq not found on PATH" >&2
+  exit 2
+fi
+if [[ -z "${DEEPSEEK_API_KEY:-}" ]]; then
+  echo "ds-send: DEEPSEEK_API_KEY is not set in environment" >&2
+  exit 1
+fi
+
+# --- arg parsing ---------------------------------------------------------
+
+MODEL="deepseek-v4-pro"
+MAX_TOKENS=4096
+TEMPERATURE=0.2
+SYSTEM_PROMPT=""
+PROMPT=""
+FROM_STDIN=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --model)        MODEL="$2"; shift 2 ;;
+    --max-tokens)   MAX_TOKENS="$2"; shift 2 ;;
+    --temperature)  TEMPERATURE="$2"; shift 2 ;;
+    --system)       SYSTEM_PROMPT="$2"; shift 2 ;;
+    --from-stdin)   FROM_STDIN=1; shift ;;
+    --help|-h)
+      sed -n '2,25p' "$0" | sed 's/^# \?//'
+      exit 0
+      ;;
+    --*)
+      echo "ds-send: unknown flag $1" >&2
+      exit 1
+      ;;
+    *)
+      if [[ -z "$PROMPT" ]]; then PROMPT="$1"
+      else echo "ds-send: unexpected positional arg: $1" >&2; exit 1
+      fi
+      shift
+      ;;
+  esac
+done
+
+if [[ $FROM_STDIN -eq 1 ]]; then
+  PROMPT="$(cat -)"
+fi
+if [[ -z "$PROMPT" ]]; then
+  echo "ds-send: prompt is empty (pass as arg or via --from-stdin)" >&2
+  exit 1
+fi
+
+# --- build request body --------------------------------------------------
+
+# Compose messages: optional system + required user
+if [[ -n "$SYSTEM_PROMPT" ]]; then
+  BODY=$(jq -n \
+    --arg model "$MODEL" \
+    --argjson max_tokens "$MAX_TOKENS" \
+    --argjson temperature "$TEMPERATURE" \
+    --arg system "$SYSTEM_PROMPT" \
+    --arg user "$PROMPT" \
+    '{
+      model: $model,
+      max_tokens: $max_tokens,
+      temperature: $temperature,
+      messages: [
+        {role: "system", content: $system},
+        {role: "user",   content: $user}
+      ]
+    }')
+else
+  BODY=$(jq -n \
+    --arg model "$MODEL" \
+    --argjson max_tokens "$MAX_TOKENS" \
+    --argjson temperature "$TEMPERATURE" \
+    --arg user "$PROMPT" \
+    '{
+      model: $model,
+      max_tokens: $max_tokens,
+      temperature: $temperature,
+      messages: [
+        {role: "user", content: $user}
+      ]
+    }')
+fi
+
+# --- call DeepSeek -------------------------------------------------------
+
+# -w writes the HTTP code to a tempfile so we can keep the body clean on stdout.
+HTTP_CODE_FILE=$(mktemp)
+trap 'rm -f "$HTTP_CODE_FILE"' EXIT
+
+RESPONSE=$(curl -sS \
+  -w "%{http_code}" \
+  -o >(cat) \
+  -H "Authorization: Bearer $DEEPSEEK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "$BODY" \
+  https://api.deepseek.com/v1/chat/completions) || {
+    echo "ds-send: curl failed" >&2
+    exit 1
+  }
+
+# Split: last 3 chars are the HTTP code, rest is the JSON body
+HTTP_CODE="${RESPONSE: -3}"
+JSON_BODY="${RESPONSE:0:${#RESPONSE}-3}"
+
+if [[ "$HTTP_CODE" != "200" ]]; then
+  echo "ds-send: HTTP $HTTP_CODE from DeepSeek" >&2
+  echo "$JSON_BODY" >&2
+  exit 1
+fi
+
+echo "$JSON_BODY"

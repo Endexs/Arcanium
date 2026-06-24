@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Local secrets / state
+.env
+.env.*
+!.env.example
+.claude/tmp/
+*.local
+
+# Project-specific runtime data (uncomment / customize as needed)
+# *.db
+# *.sqlite
+# data/
