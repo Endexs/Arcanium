@@ -32,6 +32,34 @@ Skills are vendored into `./skills/` at bootstrap time — fully self-contained,
 
 > **Note on skill updates**: Skills are frozen at the version stamped in `skills/README.md`. A central Arcanium update will NOT propagate to this project. To re-sync: run `install.sh --local "$(pwd)" --force` from your Arcanium checkout. Frozen skills are a feature, not a bug — a v0.5.0 change shouldn't retroactively break a project that worked under v0.4.0.
 
+## Spec gap discipline
+
+When working on or reviewing `spec/spec.md`, treat empty sections as **gaps to flag**, not blanks to fill.
+
+| Section type | Empty-section behavior |
+|------|------|
+| **PM-owned** (§1 What it is, §2 User stories, §6 Non-negotiables, §8 Success criteria) | **Flag.** Output `[GAP — PM input needed]` listing what's missing. Suggest filling inline OR running `agents/planner/pm-checklist.md` to surface decisions. Do NOT invent. |
+| **Engineering-owned** (§3 Architecture, §4 Data model, §5 Interface) | **Draft a strawman** based on PM-owned answers. Mark `[DRAFT — please review]`. |
+| **Collaborative** (§7 Phase plan, §9 Out of scope) | **Propose options.** Don't decide. Output choices for the user to pick. |
+
+### Two signals before deciding "empty section"
+
+1. **Is the PM checklist filled?** If yes, apply stated defaults (silence = accept-default per `pm-checklist`). Transcribing checklist answers into the spec is NOT inventing — it's recording decisions already made.
+2. **Is a default stated anywhere?** Checklist, prior conversation, prior spec section. If a default exists, apply it. If no default exists, the section is a true gap.
+
+### What this prevents
+
+- Confabulated §1s ("This is a tool that does <plausible-sounding thing>")
+- Invented user stories the user didn't validate
+- Made-up non-negotiables that become load-bearing in code
+- Phase plans built on quiet inventions; errors compound silently and surface at Phase 3
+
+### Related skills
+- `skills/workflow/spec-first` — spec is the source of truth; this is the start-of-project application
+- `skills/workflow/pm-checklist` — the explicit mechanism for surfacing PM-owned decisions
+
+---
+
 ## Multi-agent pipeline
 
 | Phase | Model | Artifact |

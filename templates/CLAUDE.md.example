@@ -29,6 +29,22 @@ This project uses the following skills from `skills/` (or `~/.claude/skills/`):
 ### Active for large features (>6 files)
 - `process/split-run-implementation` — partition by dependency
 
+## Spec gap discipline
+
+When working on or reviewing `spec/spec.md`, treat empty sections as **gaps to flag**, not blanks to fill.
+
+| Section type | Empty-section behavior |
+|------|------|
+| **PM-owned** (§1 What it is, §2 User stories, §6 Non-negotiables, §8 Success criteria) | **Flag.** Output `[GAP — PM input needed]` listing what's missing. Suggest filling inline OR running `agents/planner/pm-checklist.md` to surface decisions. Do NOT invent. |
+| **Engineering-owned** (§3 Architecture, §4 Data model, §5 Interface) | **Draft a strawman** based on PM-owned answers. Mark `[DRAFT — please review]`. |
+| **Collaborative** (§7 Phase plan, §9 Out of scope) | **Propose options.** Don't decide. Output choices for the user to pick. |
+
+Two signals before deciding "empty section":
+1. **PM checklist filled?** Apply stated defaults (silence = accept-default per `workflow/pm-checklist`). Transcribing checklist answers is NOT inventing.
+2. **Default stated anywhere?** Checklist, prior conversation, prior spec section. If a default exists, apply it; otherwise the section is a true gap.
+
+Related: `workflow/spec-first` (canonical source of truth rule), `workflow/pm-checklist` (decision-surfacing mechanism).
+
 ## Project-specific overrides
 
 (Use this section to override skill defaults for your project. Examples:)

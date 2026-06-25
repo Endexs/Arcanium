@@ -29,6 +29,16 @@ If the agent encounters ambiguity during implementation, it must:
 - Propose a spec amendment for user approval
 - Resume only after the spec is updated
 
+### When the spec has empty sections (start-of-project)
+At project bootstrap, the spec.md template ships with empty placeholder sections. The agent must NOT silently fill them. Apply the **gap discipline** documented in the project's `CLAUDE.md`:
+- **PM-owned sections** (purpose, user stories, non-negotiables, success criteria) → output `[GAP — PM input needed]`, do not invent
+- **Engineering-owned sections** (architecture, data model, interface) → may draft a strawman from the PM-owned answers, marked `[DRAFT — please review]`
+- **Collaborative sections** (phase plan, cut list) → propose options, don't decide unilaterally
+
+Apply stated defaults from the PM checklist (silence = accept-default per `[[pm-checklist]]`). Transcribing a checklist answer is NOT inventing — it's recording a decision already made. Inventing means writing content with no signal from the user.
+
+The full table lives in `CLAUDE.md` so it's read every session; this section keeps the skill index aware of the rule.
+
 ## What this prevents
 - Agents inventing behavior the user didn't ask for
 - Different agents (planner vs implementer vs reviewer) acting on conflicting assumptions

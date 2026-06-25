@@ -29,6 +29,23 @@ After project: <project-name>  (see retrospectives/<file>.md)
 
 ---
 
+## v0.4.2 — 2026-06-25
+After: in-flight clarification (user-driven, not retrospective-driven).
+
+### Added
+- `starter/CLAUDE.md` — new "Spec gap discipline" section. Tells the session-start agent how to handle empty `spec/spec.md` sections: PM-owned blanks get flagged as `[GAP]`, engineering-owned blanks may be drafted as `[DRAFT]`, collaborative blanks propose options rather than decide. Two signals (PM checklist filled? default stated anywhere?) determine whether transcription is allowed vs invention forbidden.
+- `templates/CLAUDE.md.example` — same gap discipline section, condensed format, for projects that retrofit Arcanium via `install.sh`.
+- `workflow/spec-first` — extended "When the spec is ambiguous" with a new "When the spec has empty sections (start-of-project)" subsection. Skill-index now reflects the discipline; CLAUDE.md remains the canonical session-start location.
+
+### Notes
+- Surfaced by a user question: *"if I leave a spec section blank, will the LLM fill it for me?"* Right answer is "no, and it shouldn't" — but the rule wasn't written down anywhere a session-start agent would read it. Writing it down closes the gap.
+- Distinct from `workflow/spec-first`'s existing "When the spec is ambiguous" subsection: that one covers ambiguity discovered *during implementation*; this one covers *empty sections at project start*. Different timing, related discipline, separate prompts.
+- Why CLAUDE.md is the primary location: agents read CLAUDE.md every session start. Skill files are loaded on demand when referenced. Critical session-time rules earn the always-loaded slot.
+- Existing v0.4.1 projects do NOT get this update automatically (vendor model — frozen at bootstrap). To pull it: `install.sh --local <project> --force`.
+- This is the third v0.4.x patch in two days. Cadence is unusual for a stable methodology package — it's high because we're using the methodology in earnest for the first time and the gaps are surfacing fast. Expect this rate to drop as the package matures.
+
+---
+
 ## v0.4.1 — 2026-06-24
 After: portability bug surfaced minutes after v0.4.0 shipped.
 
