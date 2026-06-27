@@ -18,7 +18,10 @@ Every plan must include a "Decisions" section with entries like:
 **What this costs if wrong**: <one sentence>
 **Confidence**: high | medium | low
 **Reversibility**: easy | hard
+**Validated** (external-facing decisions only): yes (cite source) | no | n/a
 ```
+
+The **Validated** axis applies to any decision that depends on a system you don't control — a third-party API, a platform behavior, an integration you assume exists. "Validated: yes" requires a verification source (a probe, a header check, an API response); "the user wants it" is not validation — that's confidence in the goal, not proof the capability exists. Use `n/a` for self-contained decisions (schema, module layout, error format).
 
 ### What to log
 Log decisions about:
@@ -48,7 +51,18 @@ The user reviews only entries where **both** confidence is low/medium AND revers
 | Low/Med | Easy | Auto-approve (cheap to fix later) |
 | Low/Med | Hard | **STOP** — user must review |
 
+### The validated-and-load-bearing override
+
+The confidence/reversibility table is not enough on its own. A decision can be **high confidence and easy to reverse** and still sink the project — if it depends on an external capability nobody checked. That's the airbnb-llm-chat failure: confidence in the goal (send replies into Airbnb) was high and "swap the send mechanism later" felt reversible, so the table auto-approved it — but the capability didn't exist.
+
+Override rule, evaluated **before** the table:
+
+> If `Validated = no` **and** the project depends on this capability → **automatic STOP**, regardless of confidence or reversibility.
+
+The fix on a STOP here is not "user reviews the wording" — it's "go run the cheapest probe that proves the capability exists" (see `[[feasibility-first]]`), then come back and set `Validated: yes` with a source. An unvalidated, load-bearing external assumption is the one decision class that confidence cannot buy a pass on.
+
 ## What this prevents
 - Burning weeks on a wrong architectural choice the user could have flagged in 30 seconds
 - Agents quietly making decisions the user didn't realize they were delegating
 - "Why did we choose Postgres again?" questions 3 months later with no answer
+- Building an entire phase on an external capability that was never verified to exist (the validated-and-load-bearing override catches this when `feasibility-first` was skipped)

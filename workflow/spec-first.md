@@ -39,11 +39,26 @@ Apply stated defaults from the PM checklist (silence = accept-default per `[[pm-
 
 The full table lives in `CLAUDE.md` so it's read every session; this section keeps the skill index aware of the rule.
 
+### When a decision touches an external system: `[CONFIRMED]` needs a source
+
+A `[CONFIRMED]` tag means a decision is settled. For anything that depends on a system you don't control — a third-party API, a platform behavior, an integration you assume exists — that tag must cite a **verification source**, because "settled" conflates two different claims:
+- **PM-confirmed** — the user decided they want this.
+- **Feasibility-confirmed** — the capability actually exists.
+
+The user can only give you the first. A `[CONFIRMED]` on an external capability backed only by "the user wants it" is recording desire as if it were proof.
+
+Rule:
+- External claim **with** a verification source → `[CONFIRMED 2026-06-26: verified via <probe/header check/API response>]`
+- External claim **without** one → `[ASSUMED — unverified]`, and it becomes Phase-0 work (run the probe; see `[[feasibility-first]]`) before it can be promoted to `[CONFIRMED]`.
+
+Source: airbnb-llm-chat. The spec stamped "replies to the notification email reach the guest via SMTP" as `[CONFIRMED]` on the strength of the user wanting platform integration. It was never tested; reply-by-email was dead (`Reply-To: noreply@`). The whole project rested on a desire mislabeled as a fact.
+
 ## What this prevents
 - Agents inventing behavior the user didn't ask for
 - Different agents (planner vs implementer vs reviewer) acting on conflicting assumptions
 - Scope creep mid-implementation
 - Bugs that surface in production because nobody specified the edge case
+- An unverified external capability written into the spec as settled architecture, so every downstream agent treats a guess as a fact
 
 ## Anti-pattern
 Treating the spec as documentation written after the code. The spec is a *contract*, not a record. If you find yourself updating the spec to match what you built, you skipped the step.
