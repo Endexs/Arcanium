@@ -29,6 +29,16 @@ After project: <project-name>  (see retrospectives/<file>.md)
 
 ---
 
+## v0.5.0 — 2026-06-27
+After project: airbnb-llm-chat  (see retrospectives/2026-06-airbnb-llm-chat.md)
+
+### Added
+- `workflow/feasibility-first` — validate a project's load-bearing external dependency with the cheapest possible probe BEFORE writing the spec. On airbnb-llm-chat the entire value was sending replies into Airbnb; that integration was validated *last*, after a full pipeline (spec → plan → DeepSeek impl → adversarial review → fix → commit Phase 1). A 2-minute email-header check (`Reply-To: noreply@airbnb.com`) would have killed the project on day one. The "ship value early, defer the hard integration" heuristic is backwards when the deferred risk IS the core value.
+
+### Notes
+- Recommended follow-up modifications (NOT yet applied — flagged for the next pass): `workflow/spec-first` should require a verification source on any `[CONFIRMED]` tag touching an external system ("the user wants it" confirms desire, not feasibility); `workflow/decision-log` should add a third axis for external-facing work — **validated? (yes/no)** — where an unvalidated assumption the project depends on is an automatic STOP.
+- Two techniques that worked well and need no change: `engineering/implementer-handoff` (zero hallucinated names across two DeepSeek handoffs — negative assertions earned their rent) and `quality/adversarial-review` (all 2C/2M/9N Phase-1 findings were real). The failure was upstream of the build, in not gating on feasibility.
+
 ## v0.4.2 — 2026-06-25
 After: in-flight clarification (user-driven, not retrospective-driven).
 

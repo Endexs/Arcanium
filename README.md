@@ -68,6 +68,7 @@ Then reference them in your project's CLAUDE.md (see `templates/CLAUDE.md.exampl
 ### workflow/ — meta-process for working with agents
 Skills that shape how you and the agent collaborate. Apply these regardless of what you're building.
 
+- **feasibility-first.md** — prove the project's load-bearing external dependency before writing the spec, not after shipping a phase
 - **spec-first.md** — write intent before code; spec is the source of truth
 - **pm-checklist.md** — when a spec has 5+ PM-owned decisions, produce a checklist file instead of asking inline
 - **decision-log.md** — agent surfaces decisions with confidence + reversibility
