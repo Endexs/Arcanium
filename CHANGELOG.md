@@ -29,6 +29,25 @@ After project: <project-name>  (see retrospectives/<file>.md)
 
 ---
 
+## v0.6.0 — 2026-06-30
+After: user-driven gap (not retrospective-driven). User feedback during v0.5.x usage: *"me just writing it by myself I don't think is that effective without the necessary technical knowledge."*
+
+### Added
+- `workflow/spec-coach` — Socratic loop that auto-invokes on empty PM-owned spec sections (§1 What this is, §2 User stories, §6 Non-negotiables, §8 Success criteria). Agent asks 1–2 open questions per round, records user answers progressively into `spec.md` as `[DRAFT FROM COACH SESSION]`, never invents content. Soft cap at 5 question rounds per section, then "keep refining or move on?" Ship-default question banks per section; anti-leading discipline explicitly prohibits "most projects pick X" steering. User can `skip §X` to opt out — section reverts to `[GAP — PM input needed]`.
+
+### Modified
+- `starter/CLAUDE.md` — gap-discipline rule for PM-owned blanks updated from "flag as `[GAP]`" to "invoke `spec-coach` by default; `[GAP]` only on user opt-out." This is the cure side of gap-discipline: blocking invention is necessary but not sufficient; helping the user fill the blank well closes the loop.
+- `templates/CLAUDE.md.example` — same change in the retrofit template.
+- `workflow/spec-first` — cross-references `[[spec-coach]]` in the empty-sections subsection; clarifies that gap-discipline + coach bracket invention from both sides.
+
+### Notes
+- **Why minor (0.6.0) not patch:** new skill added, plus default agent behavior on empty PM sections changes meaningfully. Existing v0.5.x projects do NOT get this automatically (vendor model — frozen at bootstrap). To pull: `install.sh --local <project> --force`.
+- **Default-on, not opt-in:** user explicitly requested default behavior (option 3 in the design proposal), with confidence they would benefit from frequent help. Trade-off: an agent that grills you when you didn't ask for it can feel intrusive. Escape hatch is `skip §X`; if intrusiveness becomes a complaint, downgrade to explicit-invocation-only in v0.7+.
+- **Composes with `pm-checklist`:** checklist is for *"I know what I want, just record it."* Coach is for *"I don't yet."* Different moments. Coach explicitly checks for a filled checklist BEFORE grilling — transcribing answers from the checklist is not invention and not coaching.
+- **Composes with `feasibility-first`:** one §6 coach question is *"what external dependency does this rely on?"* — the answer feeds the feasibility probe directly. The two skills caught complementary halves of the airbnb-llm-chat failure mode (feasibility caught the un-verified integration; coach would have caught the vague non-negotiable that hid the dependency in the first place).
+
+---
+
 ## v0.5.0 — 2026-06-27
 After project: airbnb-llm-chat  (see retrospectives/2026-06-airbnb-llm-chat.md)
 

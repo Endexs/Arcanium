@@ -37,6 +37,8 @@ At project bootstrap, the spec.md template ships with empty placeholder sections
 
 Apply stated defaults from the PM checklist (silence = accept-default per `[[pm-checklist]]`). Transcribing a checklist answer is NOT inventing — it's recording a decision already made. Inventing means writing content with no signal from the user.
 
+When a PM-owned section is empty AND no checklist default exists, `[[spec-coach]]` auto-invokes by default: the agent runs a Socratic loop to help the user produce real content, never inventing. The two skills bracket invention from both sides — gap-discipline blocks the agent from filling the blank; coach helps the user fill it well.
+
 The full table lives in `CLAUDE.md` so it's read every session; this section keeps the skill index aware of the rule.
 
 ### When a decision touches an external system: `[CONFIRMED]` needs a source

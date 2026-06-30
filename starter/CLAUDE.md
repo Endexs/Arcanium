@@ -23,6 +23,7 @@ Skills are vendored into `./skills/` at bootstrap time — fully self-contained,
 - `skills/workflow/decision-log` — surface decisions with confidence + reversibility
 - `skills/workflow/scope-cut-list` — every plan explicitly lists features it excluded
 - `skills/workflow/pm-checklist` — when a phase has 5+ PM decisions, produce `agents/planner/pm-checklist.md`
+- `skills/workflow/spec-coach` — Socratic loop that auto-invokes on empty PM-owned spec sections; helps user fill blanks well without inventing
 - `skills/quality/good-enough-rubric` — five-question review, not perfectionism
 - `skills/quality/adversarial-review` — separate agent hunts for bugs (Critical / Major / Minor)
 
@@ -38,7 +39,7 @@ When working on or reviewing `spec/spec.md`, treat empty sections as **gaps to f
 
 | Section type | Empty-section behavior |
 |------|------|
-| **PM-owned** (§1 What it is, §2 User stories, §6 Non-negotiables, §8 Success criteria) | **Flag.** Output `[GAP — PM input needed]` listing what's missing. Suggest filling inline OR running `agents/planner/pm-checklist.md` to surface decisions. Do NOT invent. |
+| **PM-owned** (§1 What it is, §2 User stories, §6 Non-negotiables, §8 Success criteria) | **Invoke `skills/workflow/spec-coach` by default.** Ask Socratic questions, record user's answers progressively as `[DRAFT FROM COACH SESSION]`, never invent. User can say "skip §X" to opt out — then mark `[GAP — PM input needed]`. Do NOT invent under any circumstance. |
 | **Engineering-owned** (§3 Architecture, §4 Data model, §5 Interface) | **Draft a strawman** based on PM-owned answers. Mark `[DRAFT — please review]`. |
 | **Collaborative** (§7 Phase plan, §9 Out of scope) | **Propose options.** Don't decide. Output choices for the user to pick. |
 
@@ -57,6 +58,7 @@ When working on or reviewing `spec/spec.md`, treat empty sections as **gaps to f
 ### Related skills
 - `skills/workflow/spec-first` — spec is the source of truth; this is the start-of-project application
 - `skills/workflow/pm-checklist` — the explicit mechanism for surfacing PM-owned decisions
+- `skills/workflow/spec-coach` — Socratic loop to help the user fill PM-owned blanks well (auto-invoked above)
 
 ---
 
