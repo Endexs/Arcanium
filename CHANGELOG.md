@@ -30,10 +30,11 @@ After project: <project-name>  (see retrospectives/<file>.md)
 ---
 
 ## v0.7.0 — 2026-07-02
-After: user-driven request during airbnb-website (Phase 6 build). Long agentic sessions (multi-phase implement → adversarial review → fix loops) accumulate large tool outputs and several finished tasks in one thread; the user was paying full-context cost + latency on every turn without a clear signal for when to reset.
+After: two user-driven requests during airbnb-website (Phase 6 build). (1) Long agentic sessions (multi-phase implement → adversarial review → fix loops) accumulate large tool outputs and several finished tasks in one thread; the user was paying full-context cost + latency on every turn without a clear signal for when to reset. (2) The user wanted an explicit gate for *how much process* a change deserves — full pipeline for payment-grade code, one-shot vibe-code for layout — so rigor stops being an implicit per-task guess.
 
 ### Added
 - `process/compact-or-clear` — the agent proactively advises **`/clear`** (task done + unrelated next work), **`/compact`** (same task, bloated history — checkpoint first), or **keep going** (still lean), with a `/context`-based threshold (~80%) and a "checkpoint the next step before resetting" rule. Session-level sibling of `split-run-implementation` (which manages tokens *within* one large change).
+- `workflow/rigor-triage` — front-of-task router that picks **Vibe (one-shot)** / **Standard** / **Full pipeline** by *blast radius × reversibility × criticality*, not by lines of code. Routes the top tier into `[[non-negotiable-paths]]` (the floor) and keeps the bottom tier out of `[[good-enough-rubric]]`-violating over-process. Rules: criticality pre-check, "the dial is on the change not the file," round-up-when-unsure, and state the call as `Rigor: <tier> — <reason>` so the user can override before work starts.
 
 ### Modified
 - `starter/CLAUDE.md` + `templates/CLAUDE.md.example` — listed `process/compact-or-clear` under **Always active** (session hygiene applies regardless of change size).
@@ -41,9 +42,10 @@ After: user-driven request during airbnb-website (Phase 6 build). Long agentic s
 - `bin/arcanium-new` — vendor loop now includes `process/` (was `workflow engineering quality` only). **Latent-bug fix:** `arcanium-new` never copied `process/` into bootstrapped projects, so `process/split-run-implementation` silently never shipped via the recommended path even though `templates/CLAUDE.md.example` referenced it. Now `process/` ships too.
 
 ### Notes
-- **Why minor (0.7.0) not patch:** new skill added. Existing projects don't get it automatically (frozen-at-bootstrap vendor model); pull with `install.sh --local <project> --force`.
-- **Category choice:** `process/` (tactical patterns for running the agent efficiently), not `workflow/` — it's a token/latency-management tactic and pairs with `split-run-implementation`, not a collaboration-shaping practice.
-- **Also lives as a slash-invocable skill:** a `~/.claude/skills/compact-or-clear/SKILL.md` (Claude Code format) was created user-level so `/compact-or-clear` works on demand in any project; this Arcanium copy makes the *guidance* active-by-default in every bootstrapped project. The two are complementary (invoke vs. always-on advice).
+- **Why minor (0.7.0) not patch:** two new skills added. Existing projects don't get them automatically (frozen-at-bootstrap vendor model); pull with `install.sh --local <project> --force`.
+- **Category choices:** `compact-or-clear` → `process/` (a token/latency tactic; pairs with `split-run-implementation`). `rigor-triage` → `workflow/` (a collaboration/meta-process gate; it's the router that sits in front of `non-negotiable-paths` and `good-enough-rubric`).
+- **Both also ship as slash-invocable skills:** `~/.claude/skills/{compact-or-clear,rigor-triage}/SKILL.md` (Claude Code format) were created user-level so `/compact-or-clear` and `/rigor-triage` work on demand in any project; the Arcanium copies make the *guidance* active-by-default in every bootstrapped project (invoke vs. always-on).
+- **`rigor-triage` relationship to existing skills:** it does not replace `non-negotiable-paths` — it *routes into* it. non-negotiable-paths answers "which paths are always Full"; rigor-triage answers "for THIS change, which tier — and it defers to that list for the top tier." good-enough-rubric guards the bottom tier from over-processing.
 
 ---
 

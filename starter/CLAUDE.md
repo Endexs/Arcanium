@@ -17,6 +17,7 @@ Skills are vendored into `./skills/` at bootstrap time — fully self-contained,
 - `skills/engineering/defensive-defaults` — validate inputs, set timeouts, log structured
 - `skills/engineering/preserve-existing` — never wholesale-rewrite files; preserve undocumented patterns
 - `skills/quality/non-negotiable-paths` — auth / money / data deletion always get the full pipeline; load-bearing invariants use `raise RuntimeError(...)`, never `assert`
+- `skills/workflow/rigor-triage` — at the start of each task, pick the right process: full pipeline for critical code (payment/auth/data), one-shot vibe-code for cosmetic/reversible work (layout/copy); round up when unsure
 - `skills/process/compact-or-clear` — tells you when to `/clear` vs `/compact` vs keep going, so long sessions don't bleed tokens + latency
 
 ### Active for medium+ changes

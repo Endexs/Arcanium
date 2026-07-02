@@ -70,6 +70,7 @@ Skills that shape how you and the agent collaborate. Apply these regardless of w
 
 - **feasibility-first.md** — prove the project's load-bearing external dependency before writing the spec, not after shipping a phase
 - **spec-first.md** — write intent before code; spec is the source of truth
+- **rigor-triage.md** — at the start of a task, pick full-pipeline vs standard vs one-shot vibe-code by criticality (blast radius × reversibility), not by size
 - **spec-coach.md** — Socratic loop that auto-invokes on empty PM-owned spec sections; helps user fill blanks well without inventing
 - **pm-checklist.md** — when a spec has 5+ PM-owned decisions, produce a checklist file instead of asking inline
 - **decision-log.md** — agent surfaces decisions with confidence + reversibility
