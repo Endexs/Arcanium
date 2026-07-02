@@ -98,6 +98,7 @@ Rubrics the reviewer (or you) apply to judge "is this good enough to ship?"
 Tactical patterns for running the agent fleet efficiently.
 
 - **split-run-implementation.md** — partition large changes to avoid token truncation
+- **compact-or-clear.md** — advise when to `/clear` vs `/compact` vs keep going, so long sessions don't bleed tokens + latency
 
 ### templates/ — starting points for new projects
 - **CLAUDE.md.example** — composable project-level skill reference

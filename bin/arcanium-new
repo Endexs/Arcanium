@@ -94,7 +94,7 @@ ok "copied starter scaffold to $TARGET"
 # self-contained — works on any machine, survives being cloned elsewhere,
 # and won't silently break when central Arcanium is updated.
 mkdir -p "$TARGET/skills"
-for category in workflow engineering quality; do
+for category in workflow engineering quality process; do
     if [ -d "$ARC_ROOT/$category" ]; then
         cp -r "$ARC_ROOT/$category" "$TARGET/skills/"
     fi
@@ -115,7 +115,7 @@ To re-sync from current Arcanium:
 
 CLAUDE.md references these via \`skills/<category>/<name>\` (relative).
 EOF
-ok "vendored skills/{workflow,engineering,quality}/ from Arcanium v$VERSION"
+ok "vendored skills/{workflow,engineering,quality,process}/ from Arcanium v$VERSION"
 
 # ---------- 2. rename {{PROJECT_SLUG_UNDERSCORE}} package directory ----------
 PKG_DIR="$TARGET/src/{{PROJECT_SLUG_UNDERSCORE}}"

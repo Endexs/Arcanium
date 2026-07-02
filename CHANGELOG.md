@@ -29,6 +29,24 @@ After project: <project-name>  (see retrospectives/<file>.md)
 
 ---
 
+## v0.7.0 — 2026-07-02
+After: user-driven request during airbnb-website (Phase 6 build). Long agentic sessions (multi-phase implement → adversarial review → fix loops) accumulate large tool outputs and several finished tasks in one thread; the user was paying full-context cost + latency on every turn without a clear signal for when to reset.
+
+### Added
+- `process/compact-or-clear` — the agent proactively advises **`/clear`** (task done + unrelated next work), **`/compact`** (same task, bloated history — checkpoint first), or **keep going** (still lean), with a `/context`-based threshold (~80%) and a "checkpoint the next step before resetting" rule. Session-level sibling of `split-run-implementation` (which manages tokens *within* one large change).
+
+### Modified
+- `starter/CLAUDE.md` + `templates/CLAUDE.md.example` — listed `process/compact-or-clear` under **Always active** (session hygiene applies regardless of change size).
+- `README.md` — added to the `process/` catalog.
+- `bin/arcanium-new` — vendor loop now includes `process/` (was `workflow engineering quality` only). **Latent-bug fix:** `arcanium-new` never copied `process/` into bootstrapped projects, so `process/split-run-implementation` silently never shipped via the recommended path even though `templates/CLAUDE.md.example` referenced it. Now `process/` ships too.
+
+### Notes
+- **Why minor (0.7.0) not patch:** new skill added. Existing projects don't get it automatically (frozen-at-bootstrap vendor model); pull with `install.sh --local <project> --force`.
+- **Category choice:** `process/` (tactical patterns for running the agent efficiently), not `workflow/` — it's a token/latency-management tactic and pairs with `split-run-implementation`, not a collaboration-shaping practice.
+- **Also lives as a slash-invocable skill:** a `~/.claude/skills/compact-or-clear/SKILL.md` (Claude Code format) was created user-level so `/compact-or-clear` works on demand in any project; this Arcanium copy makes the *guidance* active-by-default in every bootstrapped project. The two are complementary (invoke vs. always-on advice).
+
+---
+
 ## v0.6.0 — 2026-06-30
 After: user-driven gap (not retrospective-driven). User feedback during v0.5.x usage: *"me just writing it by myself I don't think is that effective without the necessary technical knowledge."*
 
