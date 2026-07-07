@@ -28,6 +28,14 @@ Skills are vendored into `./skills/` at bootstrap time — fully self-contained,
 - `skills/workflow/spec-coach` — Socratic loop that auto-invokes on empty PM-owned spec sections; helps user fill blanks well without inventing
 - `skills/quality/good-enough-rubric` — five-question review, not perfectionism
 - `skills/quality/adversarial-review` — separate agent hunts for bugs (Critical / Major / Minor)
+- `skills/engineering/disable-flag-both-paths` — any disable/enable mechanism (feature flag, TTL=0, `--dry-run`) applies to every path it affects, not just the obvious one
+- `skills/engineering/boring-tech` — default to widely-used, well-documented, easy-to-swap tools; justify any non-default choice in the decision log
+- `skills/workflow/feasibility-first` — before committing to a new external dependency the project's value hinges on, run the cheapest probe to confirm it's usable before building around it
+- `skills/workflow/agent-journal` — for non-trivial changes, close with a short reflection (certain vs. uncertain vs. judgment calls) so risky lines get flagged before they become bugs
+- `skills/engineering/component-library` — before payment/auth/db/concurrency/llm-integration/external-integration work, read `components/<domain>/ANTIPATTERNS.md` first, then `PATTERNS.md` for the reference shape. See `components/README.md`.
+
+### Active for large features (>6 files)
+- `skills/process/split-run-implementation` — partition into dependency-ordered parts of 3–4 files each; avoids silent mid-file token truncation
 
 ### Active for end-of-project
 - `skills/workflow/retrospective` — end-of-project lessons; commit to a public or local Arcanium retrospectives folder
@@ -96,6 +104,9 @@ pytest -x -q
 ├── agents/reviewer/          ← adversarial review outputs
 ├── .claude/agents/fixer.md   ← Haiku subagent for applying review findings
 ├── .claude/bin/ds-send       ← direct DeepSeek API wrapper
+├── components/               ← via-negativa domain knowledge (payment/auth/db/concurrency/
+│                                llm-integration/external-integration); read ANTIPATTERNS.md
+│                                before PATTERNS.md, see skills/engineering/component-library.md
 ├── src/{{PROJECT_SLUG}}/     ← code
 └── tests/                    ← pytest
 ```

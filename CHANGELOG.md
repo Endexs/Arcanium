@@ -29,6 +29,40 @@ After project: <project-name>  (see retrospectives/<file>.md)
 
 ---
 
+## v0.9.1 — 2026-07-07
+After: the user asked "how does a new project use the component we just created?" — checking the
+answer surfaced that it, honestly, didn't: `bin/arcanium-new` vendors the `components/` files
+(v0.8.0), but the **template CLAUDE.md files it copies never referenced them** — the exact
+"vendored but never wired into CLAUDE.md" bug class found three times already this week
+(`disable-flag-both-paths`, `boring-tech`, `feasibility-first`, `agent-journal`), one level up
+the distribution chain this time.
+
+### Modified
+- `starter/CLAUDE.md` (copied verbatim by `arcanium-new` into every brand-new project) — added
+  `engineering/component-library` to "Active for medium+ changes", plus a `components/` entry in
+  the Project Structure tree. Also brought its skill list up to parity with
+  `templates/CLAUDE.md.example`, which already had `disable-flag-both-paths`/`agent-journal`/
+  `split-run-implementation` that `starter/CLAUDE.md` had never received — the two templates had
+  silently drifted from each other, so a project bootstrapped via `arcanium-new` and one
+  retrofitted via `install.sh --templates` were getting two different active-skill sets for no
+  intentional reason.
+- `templates/CLAUDE.md.example` — added `engineering/boring-tech`, `workflow/feasibility-first`,
+  `engineering/component-library` (the three it was missing relative to `starter/CLAUDE.md` plus
+  the new skill), and a `components/` line under File locations.
+
+### Notes
+- **Why patch (0.9.1) not minor:** fixes existing templates to reference what's already vendored;
+  no new skill, no new domain, no behavior change to `install.sh`/`arcanium-new` themselves.
+- Verified end-to-end: a fresh `arcanium-new` bootstrap now produces a `CLAUDE.md` that actually
+  references `component-library` and lists `components/` in its file tree, not just the files
+  sitting unreferenced on disk.
+- **Not fixed, deliberately out of scope this round:** `templates/CLAUDE.md.example` describes
+  retrospectives living at `journal/`, but `install.sh --templates` actually copies
+  `retrospective.md.example` to the project root (`$DEST/retrospective.md`), and `starter/`
+  (what `arcanium-new` copies) has no retrospective file at all by default. A real inconsistency,
+  found while checking this fix, but a separate one — noted here so it isn't lost, not chased
+  down under this entry.
+
 ## v0.9.0 — 2026-07-07
 After: a user question ("what other critical components do we have to keep track of besides
 db, payment, and auth?") that prompted mining the *existing* retrospectives (llm-gateway, Cortex,

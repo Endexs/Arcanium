@@ -28,6 +28,9 @@ This project uses the following skills from `skills/` (or `~/.claude/skills/`):
 - `workflow/agent-journal` — reflection after each multi-step run
 - `quality/good-enough-rubric` — five-question review, not perfectionism
 - `quality/adversarial-review` — separate agent hunts for bugs
+- `engineering/boring-tech` — default to widely-used, well-documented, easy-to-swap tools; justify any non-default choice in the decision log
+- `workflow/feasibility-first` — before committing to a new external dependency the project's value hinges on, run the cheapest probe to confirm it's usable before building around it
+- `engineering/component-library` — before payment/auth/db/concurrency/llm-integration/external-integration work, read `components/<domain>/ANTIPATTERNS.md` first, then `PATTERNS.md` for the reference shape. See `components/README.md`.
 
 ### Active for large features (>6 files)
 - `process/split-run-implementation` — partition by dependency
@@ -63,6 +66,7 @@ Related: `workflow/spec-first` (canonical source of truth rule), `workflow/pm-ch
 - **Implementer output**: `agents/implementer/`
 - **Reviews**: `agents/reviewer/`
 - **Journal/retrospectives**: `journal/`
+- **Domain components** (via-negativa payment/auth/db/concurrency/llm-integration/external-integration): `components/` — read `ANTIPATTERNS.md` before `PATTERNS.md`
 
 ## Workflow
 
