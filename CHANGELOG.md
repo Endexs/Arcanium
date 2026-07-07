@@ -29,6 +29,24 @@ After project: <project-name>  (see retrospectives/<file>.md)
 
 ---
 
+## v0.9.3 — 2026-07-07
+After: v0.9.2's de-duplication removed the one-line `Source: ...` citation along with the full
+worked-example text it was bundled with — the user asked for the citation back specifically, for
+a reviewer reading only `adversarial-review.md` without following the pointer into `components/`.
+
+### Modified
+- `quality/adversarial-review.md` — the five entries slimmed in v0.9.2 (race conditions, DB
+  lock/event loop, the SSRF clause, numerical formulas, evidence-existence) each get back a
+  short `Source: <project> <incident>` line. The full worked example, code, and fix still live
+  only in `components/<domain>/`, reached via the pointer — this restores just enough for a
+  reviewer to know *which real incident* grounds the pattern without re-duplicating the fix.
+
+### Notes
+- **Why patch (0.9.3) not minor:** wording restoration, no new content, no behavior change.
+- The resulting shape per entry, going forward: short definition → one-line source citation →
+  pointer to `components/<domain>/` for the full incident, worked example, and fix. Apply this
+  three-part shape to any future checklist entry that names a `components/` domain.
+
 ## v0.9.2 — 2026-07-07
 After: the user asked "is it worth it to have a components section like this or is it kinda
 redundant?" — a fair challenge. Checking the claim surfaced real duplication: `quality/

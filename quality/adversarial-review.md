@@ -69,8 +69,11 @@ The reviewer hunts for specific patterns:
 - **A concurrency/regression probe must be watched to fail before it's trusted** — a probe that
   passes identically with and without the fix has proven nothing.
 - Still low severity for a single-user CLI; **high** for anything with money or a webhook.
-- Full incident citations, the idempotency+CAS pattern, and the exact test-harness gotcha that
-  can quietly defeat a concurrency probe: `components/concurrency/ANTIPATTERNS.md` #3–#4 and
+- Source: airbnb-website 6D M1 (concurrent cancels refunded money while the ledger wrote `0`);
+  Phase 7 (a concurrency probe that passed both before and after its fix — see the test-harness
+  gotcha below).
+- Full incident detail, the idempotency+CAS pattern, and the exact test-harness gotcha that can
+  quietly defeat a concurrency probe: `components/concurrency/ANTIPATTERNS.md` #3–#4 and
   `PATTERNS.md` #3–#4.
 
 **A DB lock (or the event loop) held across a network call**
@@ -79,6 +82,9 @@ The reviewer hunts for specific patterns:
   are gathered + the txn committed *before* the call.
 - A blocking network call inside an `async def` route freezes the whole event loop, not just the
   one request making the call.
+- Source: airbnb-website 6A M1 (Stripe call inside the write lock), 6B M1 (`urlopen` in
+  `async def`), Phase 7 (a synchronous LLM gateway call inside `async def chat` — the same bug
+  reintroduced in a third, unrelated subsystem).
 - Full citations and both fix shapes (plain `def` vs. explicit `run_in_threadpool`):
   `components/concurrency/ANTIPATTERNS.md` #1–#2 and `PATTERNS.md` #1–#2.
 
@@ -94,9 +100,10 @@ The reviewer hunts for specific patterns:
   flowing into an error message/log unescaped. Escape export cells (a leading `= + - @ \t \r`
   is formula injection, CWE-1236); confirm no user value reaches a log/exception body.
   Source: airbnb-website 6C M1 (CSV formula injection).
-- Redirect-target re-validation specifically (scheme + private/loopback/link-local IP, on every
-  hop, not just at registration): `components/external-integration/ANTIPATTERNS.md` #4 and
-  `PATTERNS.md` #2.
+- Source (redirect-target re-validation): airbnb-website 6B M3 — a feed URL's scheme was
+  checked at registration, but the fetch followed a `302` to an unvalidated target (blind SSRF).
+  Full detail and the re-validate-every-hop fix:
+  `components/external-integration/ANTIPATTERNS.md` #4 and `PATTERNS.md` #2.
 
 **Off-by-one and falsy-zero**
 - Loop bounds that exclude an edge case
@@ -107,8 +114,9 @@ The reviewer hunts for specific patterns:
 - Any line that computes a similarity, distance, probability, or score from a library return value
 - Re-derive the formula from the library docs, not from the implementer's commentary
 - Common traps: cosine vs L2 vs squared L2; log-probability vs probability; loss vs score; degrees vs radians
-- Worked example (`sqlite-vec` returns squared L2 by default; `similarity = 1 - distance` is
-  wrong) and the verification method: `components/db/ANTIPATTERNS.md` #5 /
+- Source: Cortex Phase 3 review — `sqlite-vec` returns squared L2 distance by default;
+  `similarity = 1 - distance` is wrong, `1 - distance/2` is correct for unit vectors.
+- Full worked example and the verification method: `components/db/ANTIPATTERNS.md` #5 /
   `components/llm-integration/ANTIPATTERNS.md` #2 and their `PATTERNS.md` entries.
 
 **`assert` in non-test code for load-bearing checks**
@@ -129,6 +137,9 @@ The reviewer hunts for specific patterns:
   specific claim it's attached to* — not merely that the citation is real and exists somewhere.
   A generator can pair a fabricated claim with genuine-but-unrelated evidence and pass an
   existence-only check.
+- Source: airbnb-website Phase 7 — a support chatbot's grounding check verified quoted spans
+  were verbatim in the knowledge base but never tied the quote to the answer text it was
+  attached to (e.g. answer "there's a rooftop helipad," cite a real "free parking" line).
 - Full incident, the two-gate fix, and the residual-limitation caveat:
   `components/llm-integration/ANTIPATTERNS.md` #3 and `PATTERNS.md` #3.
 
