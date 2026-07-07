@@ -130,5 +130,30 @@ if result.status == "ok" and len(result.sources) < 1:
 
 **Apply when**: encoding any invariant in the non-negotiable list above (auth, authz, payment, deletion, etc.) as a runtime check, OR encoding any product-level guarantee whose silent failure would surprise the user. Use `assert` only for development-time sanity checks you'd be okay losing.
 
+## A green test suite is not evidence of correctness here
+
+On a non-negotiable path, "all tests pass" means almost nothing on its own. On airbnb-website
+Phase 6, **7 of 8 `Major` findings were green in the suite** and surfaced only in the mandatory
+adversarial review. The reason is structural: a typical suite is single-threaded and mocks the
+network, so it *cannot see* the failure modes that dominate money/availability code —
+concurrency races, a lock held across a slow network call, an event loop frozen by blocking I/O,
+a decision two callers make from the same stale read.
+
+Therefore, for every money/state mutation on a non-negotiable path:
+- Do not treat green tests as the gate. **The adversarial review is the gate** (`[[adversarial-review]]`).
+- Ship **at least one concurrency/contention probe** alongside the happy-path tests: a
+  lock-probe (a second connection grabs the write lock *during* the outbound network call, proving
+  the lock was released — see `[[defensive-defaults]]` rule 12a) and a concurrent-mutation case
+  (two cancels / a webhook + redirect resolve to exactly one money movement and one ledger row).
+  **A probe is only trustworthy once you've watched it fail** — temporarily revert the fix it
+  tests and confirm the probe goes red before trusting a green result on the real code. A test
+  double (mock, isolated event loop, non-shared connection) can quietly make a "concurrency
+  probe" incapable of failing regardless of the real bug's presence — see `[[adversarial-review]]`
+  for the airbnb-website Phase 7 instance of exactly this.
+- Encode the money invariant in code with `raise RuntimeError` (below), not just in a test.
+
+**Source**: airbnb-website Phase 6A/6B/6D — every concurrency Major passed the suite; the reviewer
+caught them by *reasoning* about two-at-once and real latency, which no single-threaded test does.
+
 ## Anti-pattern
 Adding paths to this list because they feel important. The list should stay short. If everything is non-negotiable, nothing is. Only add paths where a single bug has catastrophic, hard-to-reverse impact.

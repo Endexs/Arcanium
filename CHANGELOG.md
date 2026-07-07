@@ -29,6 +29,73 @@ After project: <project-name>  (see retrospectives/<file>.md)
 
 ---
 
+## v0.8.0 — 2026-07-06
+After: airbnb-website (Phase 7 retrospective + this project's accumulated payment/auth/db
+history across Phases 1–6), plus one cross-project citation from second-brain-v2 (Cortex). User
+request, not a bug: a way for future projects to reference proven domain knowledge (payment,
+auth, db) instead of rebuilding it from scratch each time, structured around *via negativa* —
+catalog what doesn't work before prescribing what does.
+
+### Added
+- **New category: `components/`** — domain knowledge, distinct from the `workflow/engineering/
+  quality/process` process skills. Each domain is a pair of files: `ANTIPATTERNS.md` (sourced,
+  cited failure modes — written first) and `PATTERNS.md` (the reference shape, written second,
+  only in direct response to a cited antipattern). Seeded three domains with real, sourced
+  material — no invented entries:
+  - `components/payment/` — 6 antipatterns (DB-lock-held-across-gateway-call, no CAS on a
+    multi-trigger state transition, SDK response-shape assumption, fake-gateway-serving-prod,
+    payment-field persistence, ad hoc refund computation) + 5 patterns responding to them.
+    Sourced from airbnb-website Phases 6A/6D and the go-live fixes.
+  - `components/auth/` — 4 antipatterns (auth-succeeds-when-misconfigured, non-constant-time
+    compare, constant-time-compare-on-malformed-input, accidental-vs-deliberate ephemeral
+    session key) + 3 patterns. Sourced from airbnb-website's admin auth + iCal export token gate.
+  - `components/db/` — 5 antipatterns (`create_all` never ALTERs, untested migration path, DB
+    lock across a network call, test fixture opening a second connection, unverified
+    similarity-formula convention) + 5 patterns. Sourced from airbnb-website Phases 1–6 plus one
+    cross-project citation (second-brain-v2/Cortex's squared-L2 distance formula bug) —
+    demonstrating the library is meant to accumulate across projects, not just within one.
+- `engineering/component-library.md` — the discipline: read a domain's `ANTIPATTERNS.md` before
+  implementing or reviewing in that domain; a `PATTERNS.md` entry may not exist without a cited
+  antipattern it responds to; new domains start with `ANTIPATTERNS.md`, never `PATTERNS.md` alone.
+
+### Modified
+- `workflow/retrospective.md` — added an explicit step: a domain-specific root cause gets
+  appended to `components/<domain>/ANTIPATTERNS.md` as part of *writing* the retrospective entry,
+  not as an optional follow-up. Keeps the component library fed from the same ritual that already
+  produces skill changes.
+- `install.sh` — new opt-in `--components <project>` flag (mirrors `--templates`); `--all` now
+  installs skills + templates + components. Non-breaking: plain `--local`/`--global` calls are
+  unaffected.
+- `bin/arcanium-new` — vendors `components/{payment,auth,db}/` unconditionally alongside skills
+  (arcanium-new has no selective-install flags at all, unlike `install.sh`). Deliberately avoids
+  repeating the v0.7.0 latent bug (a category present in `$ARC_ROOT` but missing from one of the
+  two separate vendor loops) by wiring the new category into both loops in the same change that
+  introduces it, rather than in a later patch.
+- `README.md` — new `components/` section in Categories; `install.sh` usage examples updated;
+  the "Continuous improvement" ritual now names the antipattern-first step explicitly.
+- `quality/adversarial-review.md`, `quality/non-negotiable-paths.md`,
+  `engineering/defensive-defaults.md`, `engineering/implementer-handoff.md` — **reconciled drift**
+  discovered while wiring this release: airbnb-website had edited its own locally-vendored copies
+  of all four files directly across Phases 1–7 (Preserve-verbatim block, Library-gotchas entries,
+  post-commit session hygiene, the two concurrency rules, the SSRF/CSV/except-narrowing bullets,
+  the mandatory-checklist + probe-validity + evidence-existence additions) and never promoted any
+  of it centrally. Ported all of it here now, verbatim, fully cited. This is exactly the failure
+  mode `components/` exists to prevent, just found in the *process*-skill side of the package
+  first — the one-directional "vendor, don't sync back" model means a project can silently
+  become the only place a real lesson lives unless someone manually closes the loop.
+
+### Notes
+- **Why minor (0.8.0) not major:** purely additive — no existing skill file changed meaning,
+  no existing project's `CLAUDE.md` reference breaks, `install.sh`'s default behavior
+  (`--local`/`--global` with no `--components`) is unchanged. Matches the v0.4.0 precedent
+  (introducing `starter/`/`bin/arcanium-new` was also a minor, non-breaking structural addition).
+- **Evidence discipline:** every `ANTIPATTERNS.md` entry is tagged with its evidence tier — "fixed
+  after a real incident" vs. "designed against, before an incident occurred" — so the file is
+  honest about which entries are reactive bug-fixes and which are proactive non-negotiables
+  applied before anything broke. Neither tier is invented; both require a real, named source.
+- Existing projects don't get `components/` automatically (frozen-at-bootstrap vendor model,
+  same as skills) — pull with `install.sh --components <project>` or `--all ... --force`.
+
 ## v0.7.0 — 2026-07-02
 After: two user-driven requests during airbnb-website (Phase 6 build). (1) Long agentic sessions (multi-phase implement → adversarial review → fix loops) accumulate large tool outputs and several finished tasks in one thread; the user was paying full-context cost + latency on every turn without a clear signal for when to reset. (2) The user wanted an explicit gate for *how much process* a change deserves — full pipeline for payment-grade code, one-shot vibe-code for layout — so rigor stops being an implicit per-task guess.
 

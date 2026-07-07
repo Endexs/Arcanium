@@ -61,6 +61,21 @@ A per-library cheat sheet of subtle defaults and conventions that pattern-matchi
 
 **pytest**
 - Fixture default scope is `function`, not `session`. State leaks between tests if you assume otherwise.
+
+**Starlette / FastAPI** (airbnb-website Phases 1 + 3)
+- `Jinja2Templates.TemplateResponse` in this Starlette version takes **request first**:
+  `TemplateResponse(request, name, context)`. The old `TemplateResponse(name, context)`
+  raises `TypeError: unhashable type: 'dict'`. Recurred across two phases.
+- A missing/empty required `Form(...)` field returns **422** (validation, before the
+  handler), not 400. Assert the right code in tests.
+
+**money** (airbnb-website Phase 2)
+- Never float. Store integer minor units (cents); convert dollars→cents via `Decimal`
+  with `ROUND_HALF_UP`; reject non-finite (`nan`/`inf`) before `quantize`.
+
+**env-driven config** (airbnb-website Phase 3)
+- Read `os.environ` at **call time**, not import time, so tests can `monkeypatch.setenv`
+  and so fail-closed checks re-evaluate per request.
 ```
 
 Grow the file organically. Every retrospective adds the libraries it tripped on. Don't try to be exhaustive — be specific to the libraries the implementer will actually touch on this handoff.
@@ -80,11 +95,33 @@ Pattern in the plan:
 
 For non-thinking models, 16384 is usually fine. The rule is specifically about thinking modes.
 
+### Block 4: Preserve-verbatim (when editing existing files)
+
+For any handoff that touches files which **already exist**, enumerate the symbols that
+must survive unchanged, and constrain the implementer to additive/diff-style edits instead
+of whole-file regeneration. A model told to "implement Phase N" defaults to emitting whole
+files from scratch and will reinvent names it can't see. Pattern:
+
+```
+## Preserve-verbatim (do NOT rename, redefine, or drop)
+- `db.py`: import `Base` from here — do NOT define a new `Base` in models.py.
+- Table names: "listing","photo","review","booking" — do NOT rename.
+- `GET /` route and its context keys (`listing`, `price_display`, …) — keep as-is.
+- `seed_demo_listing(session)` — keep this name; nothing imports `seed()`.
+- Edit these files additively; return a diff, not a rewritten file.
+```
+
+This is the negative-assertion discipline of Block 1 applied to symbols the implementer
+must *not redefine* (as opposed to must *call*). **Source:** airbnb-website Phase 2/3 — the
+implementer redefined `Base`, renamed tables, and rewrote a prior route, forcing hand
+merges of every correctness-critical file.
+
 ### Verifying the handoff
 Before sending the prompt, the planner (or a pre-handoff check) confirms:
 - [ ] Every function the implementer will need has a signature in "Names in scope"
 - [ ] At least one negative assertion per likely-hallucinated name
 - [ ] Every third-party library appears in "Library gotchas" if it has any non-default behavior in play
+- [ ] For any pre-existing file being edited, a "Preserve-verbatim" list names the symbols that must survive
 - [ ] `max-tokens` is set to floor for thinking models
 
 If any box is unchecked, fix the prompt before the call.

@@ -7,7 +7,8 @@
 #   ./install.sh --global                 Same as default
 #   ./install.sh --local <project-dir>    Install into <project-dir>/skills/
 #   ./install.sh --templates <project>    Copy templates into project root
-#   ./install.sh --all <project>          --local AND --templates into project
+#   ./install.sh --components <project>   Copy domain components into <project>/components/
+#   ./install.sh --all <project>          --local AND --templates AND --components into project
 #   ./install.sh --dry-run [other flags]  Print actions without doing them
 #   ./install.sh --force                  Overwrite existing files without prompt
 #   ./install.sh --help                   Show this help
@@ -17,6 +18,11 @@
 #   - README.md                                      → top-level reference
 #   - templates/                                     → only installed via --templates
 #                                                       (project-specific starting points)
+#   - components/                                    → only installed via --components
+#                                                       (payment/, auth/, db/, ... — each domain's
+#                                                       ANTIPATTERNS.md via-negativa catalog is
+#                                                       written before its PATTERNS.md reference
+#                                                       shape; see components/README.md)
 #
 # Exit codes:
 #   0  success
@@ -31,6 +37,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG_DIR="$SCRIPT_DIR"
 
 CATEGORIES=(workflow engineering quality process)
+COMPONENT_CATEGORIES=(payment auth db)
 TEMPLATE_FILES=(
   "templates/CLAUDE.md.example"
   "templates/spec.md.example"
@@ -65,6 +72,7 @@ DEST=""
 DRY_RUN=0
 FORCE=0
 INSTALL_TEMPLATES=0
+INSTALL_COMPONENTS=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -74,7 +82,8 @@ while [ $# -gt 0 ]; do
     --global)       MODE=global; shift ;;
     --local)        MODE=local; DEST="${2:-}"; shift 2 ;;
     --templates)    INSTALL_TEMPLATES=1; DEST="${2:-}"; shift 2; MODE=templates_only ;;
-    --all)          MODE=local; INSTALL_TEMPLATES=1; DEST="${2:-}"; shift 2 ;;
+    --components)   INSTALL_COMPONENTS=1; DEST="${2:-}"; shift 2; MODE=components_only ;;
+    --all)          MODE=local; INSTALL_TEMPLATES=1; INSTALL_COMPONENTS=1; DEST="${2:-}"; shift 2 ;;
     *)              err "Unknown argument: $1"; echo "Run with --help for usage."; exit 1 ;;
   esac
 done
@@ -109,6 +118,14 @@ case "$MODE" in
     DEST="${DEST/#\~/$HOME}"
     SKILLS_DEST=""  # not installing skills, only templates
     ;;
+  components_only)
+    if [ -z "$DEST" ]; then
+      err "--components requires a project directory argument"
+      exit 1
+    fi
+    DEST="${DEST/#\~/$HOME}"
+    SKILLS_DEST=""  # not installing skills, only components
+    ;;
 esac
 
 if [ "$INSTALL_TEMPLATES" -eq 1 ] && [ "$MODE" != "templates_only" ]; then
@@ -124,6 +141,9 @@ if [ -n "$SKILLS_DEST" ]; then
 fi
 if [ "$INSTALL_TEMPLATES" -eq 1 ]; then
   dim "Templates:    $DEST/"
+fi
+if [ "$INSTALL_COMPONENTS" -eq 1 ]; then
+  dim "Components:   $DEST/components/"
 fi
 dim "Dry run:      $([ "$DRY_RUN" -eq 1 ] && echo yes || echo no)"
 dim "Force:        $([ "$FORCE" -eq 1 ] && echo yes || echo no)"
@@ -207,6 +227,24 @@ if [ "$INSTALL_TEMPLATES" -eq 1 ]; then
   echo
 fi
 
+# ── install components ───────────────────────────────────────────────────────
+# Domain component libraries (payment/, auth/, db/, ...): each is a pair of files —
+# ANTIPATTERNS.md (via negativa: sourced, cited failure modes) and PATTERNS.md (the
+# reference shape that responds to them). Vendored the same frozen-at-bootstrap way as
+# skills — never live-referenced back to $PKG_DIR.
+if [ "$INSTALL_COMPONENTS" -eq 1 ]; then
+  info "Installing domain components to: ${BOLD}$DEST/components${RESET}"
+  for dom in "${COMPONENT_CATEGORIES[@]}"; do
+    if [ -d "$PKG_DIR/components/$dom" ]; then
+      copy_dir "$PKG_DIR/components/$dom" "$DEST/components/$dom"
+    else
+      warn "no component library for domain: $dom (skipping)"
+    fi
+  done
+  copy_file "$PKG_DIR/components/README.md" "$DEST/components/README.md" || true
+  echo
+fi
+
 # ── summary and next steps ───────────────────────────────────────────────────
 if [ "$DRY_RUN" -eq 1 ]; then
   info "${YELLOW}Dry run complete. No files were written.${RESET}"
@@ -236,10 +274,21 @@ case "$MODE" in
     if [ "$INSTALL_TEMPLATES" -eq 1 ]; then
       echo "  3. Fill out the templated CLAUDE.md and spec/spec.md."
     fi
+    if [ "$INSTALL_COMPONENTS" -eq 1 ]; then
+      echo "  4. Domain components (via-negativa antipatterns + patterns) are at: $DEST/components/"
+      echo "     Read a domain's ANTIPATTERNS.md before implementing in that domain — see"
+      echo "     engineering/component-library.md for the discipline."
+    fi
     ;;
   templates_only)
     echo "  1. Edit $DEST/CLAUDE.md with your project specifics."
     echo "  2. Edit $DEST/spec/spec.md with your intent."
+    echo "  3. If you don't have skills installed yet, run:"
+    echo "       $0 --global"
+    ;;
+  components_only)
+    echo "  1. Domain components are at: $DEST/components/"
+    echo "  2. Read a domain's ANTIPATTERNS.md before implementing in that domain."
     echo "  3. If you don't have skills installed yet, run:"
     echo "       $0 --global"
     ;;

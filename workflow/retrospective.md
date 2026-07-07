@@ -50,6 +50,14 @@ Append to `journal/retrospective.md`:
 ### Acting on the retrospective
 For each P1 improvement, update the corresponding skill file or system prompt **before starting the next phase**. The retrospective is wasted if it doesn't change behavior.
 
+### Domain-specific root causes feed the component library, before the entry is done
+If a root cause is specific to a domain covered by `components/` (payment, auth, db, ...),
+appending the sourced antipattern to that domain's `components/<domain>/ANTIPATTERNS.md` is
+part of *writing this retrospective entry* — not an optional follow-up, and not something to
+batch for later. Via negativa: the failure entry goes in first; a `PATTERNS.md` addition only
+follows if there's a reference shape worth generalizing, and only cites the antipattern it
+responds to. See `engineering/component-library.md` for the full discipline.
+
 ## What this prevents
 - Repeating the same mistake on the next project
 - "Tribal knowledge" that disappears when you take a break

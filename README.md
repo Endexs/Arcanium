@@ -28,6 +28,8 @@ What you get at `/home/developer/projects/hello-rag/`:
 - `agents/reviewer/review-template.md` with the Critical/Major/Minor structure
 - `.claude/agents/fixer.md` (Haiku subagent for applying review findings)
 - `.claude/bin/ds-send` (direct DeepSeek wrapper, no Python venv dep)
+- `components/{payment,auth,db}/` (via-negativa domain knowledge — read a domain's
+  `ANTIPATTERNS.md` before implementing in it; see `engineering/component-library.md`)
 - `tests/conftest.py`, `pyproject.toml`, `.gitignore`, `src/<package>/__init__.py`
 - A clean `.venv/` with pytest installed
 - `git init` on `main`, one commit
@@ -42,14 +44,15 @@ If you already have a project and want to retrofit the skills into it:
 # Install globally to ~/.claude/skills/ (one-time setup)
 ./install.sh
 
-# Or install into a specific existing project (skills + templates)
+# Or install into a specific existing project (skills + templates + components)
 ./install.sh --all /path/to/your-project
 
 # Other modes
-./install.sh --local /path/to/your-project       # skills only
-./install.sh --templates /path/to/your-project   # templates only
-./install.sh --dry-run --all /tmp/preview        # preview without writing
-./install.sh --help                              # see all options
+./install.sh --local /path/to/your-project        # skills only
+./install.sh --templates /path/to/your-project    # templates only
+./install.sh --components /path/to/your-project   # domain components only (payment/auth/db)
+./install.sh --dry-run --all /tmp/preview         # preview without writing
+./install.sh --help                               # see all options
 ```
 
 The installer is idempotent — re-running skips existing files unless you pass `--force`.
@@ -87,6 +90,7 @@ Defensive patterns the implementer should apply without being asked.
 - **preserve-existing.md** — never wholesale rewrite files; preserve undocumented patterns
 - **disable-flag-both-paths.md** — TTL=0, --no-cache, feature flags apply to read AND write
 - **implementer-handoff.md** — pre-handoff prompt blocks: names in scope, library gotchas, output budget
+- **component-library.md** — before payment/auth/db work, read that domain's `components/<domain>/ANTIPATTERNS.md` first; a pattern may only be added in direct response to a cited antipattern
 
 ### quality/ — review and verification standards
 Rubrics the reviewer (or you) apply to judge "is this good enough to ship?"
@@ -100,6 +104,18 @@ Tactical patterns for running the agent fleet efficiently.
 
 - **split-run-implementation.md** — partition large changes to avoid token truncation
 - **compact-or-clear.md** — advise when to `/clear` vs `/compact` vs keep going, so long sessions don't bleed tokens + latency
+
+### components/ — domain knowledge, via negativa first
+A different kind of artifact than the process skills above: recurring, sourced knowledge about
+*specific* subsystems (payment, auth, database) every project rebuilds from scratch. Each domain
+is a pair of files, and the order is the discipline — `ANTIPATTERNS.md` (what has actually
+broken, and why — written first) and `PATTERNS.md` (the reference shape, written second, only in
+direct response to a cited antipattern). See `components/README.md` and
+`engineering/component-library.md` for the full rule and how new entries get added.
+
+- **payment/** — gateway integration, refunds, idempotency, money-amount computation
+- **auth/** — credential verification, session signing, constant-time comparison
+- **db/** — schema evolution, transaction/locking discipline, test-fixture connection sharing
 
 ### templates/ — starting points for new projects
 - **CLAUDE.md.example** — composable project-level skill reference
@@ -132,9 +148,12 @@ This package is designed to absorb lessons from every project you ship. After ea
 
 1. Copy `templates/retrospective.md.example` to `retrospectives/YYYY-MM-<project>.md`
 2. Fill it in honestly — especially "what failed" and "skills changes proposed"
-3. Apply the proposed changes to skill files
-4. Bump `VERSION` and add a `CHANGELOG.md` entry referencing the retrospective
-5. Commit
+3. If a root cause is domain-specific (payment, auth, db, ...), append the sourced antipattern
+   to `components/<domain>/ANTIPATTERNS.md` **as part of this step**, before it's considered
+   proposed-changes-applied — see `engineering/component-library.md`
+4. Apply the proposed changes to skill files
+5. Bump `VERSION` and add a `CHANGELOG.md` entry referencing the retrospective
+6. Commit
 
 The full ritual is in `LOOP.md`. The short version: every bug that ships is a test you didn't write — and every retrospective without a skill change is theater.
 

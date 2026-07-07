@@ -17,6 +17,17 @@ Without an adversarial reviewer, these bugs ship.
 - Always for changes that introduce a new disable mechanism, cache, or auth path
 - Skip for: pure refactoring, doc updates, dependency bumps, test additions only
 
+**Before declaring any task done, answer these four explicitly** ("qualifies: yes/no,
+because...") — do not substitute a rigor-tier statement (Vibe/Standard/Full) for actually
+checking this list. They are different steps: a rigor tier is a vibe, this checklist is a fact
+table, and only the fact table is mechanical enough to survive momentum. A task that qualifies
+gets the review before it's called finished, full stop — not after the user asks whether it
+happened. Source: airbnb-website Phase 7 — a stated "Standard, rounding toward Full" rigor tier
+shipped without the review ever running, until the user directly asked "did you one-shot it?"
+Also check any change that introduces a new disable/enable mechanism against
+`[[disable-flag-both-paths]]` at the same time — the two checklists share a trigger and catch
+different halves of the same bug class (see that skill's own real-world hit).
+
 ### Review checklist
 The reviewer hunts for specific patterns:
 
@@ -50,10 +61,47 @@ The reviewer hunts for specific patterns:
 - Errors logged but not propagated
 - Functions returning None on error without a clear "did this succeed" signal
 
-**Race conditions**
+**Race conditions** (Major+ on any web money/availability path — the suite can't see these)
 - Check-then-act patterns (TOCTOU)
 - Shared mutable state without locks
-- Note: usually low severity for single-user CLI tools, higher for web services
+- **Two-at-once probe:** for every state mutation, ask "what if two of these run concurrently
+  (webhook + success-redirect, a double-click, two admin tabs)?" A bare re-read is not a guard —
+  both callers can read the old state, diverge on the decision, and the loser overwrites the
+  winner. Demand an idempotency key (effect happens once) **and** a compare-and-swap / set-once
+  claim (`UPDATE … WHERE status=…`, act only if `rowcount==1`).
+  Source: airbnb-website 6D M1 — concurrent cancels refunded money while the ledger wrote `0`.
+- Note: still low severity for a single-user CLI; **high** for anything with money or a webhook.
+- **A concurrency/regression probe must be watched to fail before it's trusted.** Writing a
+  probe that "looks like" it exercises the race isn't enough — before trusting a green result,
+  temporarily revert the fix under test and confirm the probe goes red. A probe that passes
+  identically with and without the fix has proven nothing, only a plausible shape. Watch for
+  test-harness subtleties that quietly defeat the probe: e.g. a test client that gives each
+  concurrent call its own isolated event loop/connection (no shared state to race over) reads
+  as a real concurrency test but structurally cannot fail. Source: airbnb-website Phase 7 — a
+  concurrency probe for an event-loop-freeze bug passed both before and after the fix, because
+  it used a `TestClient` instance that was never entered as a context manager (`with
+  TestClient(app) as c:`), so each call got a fresh, non-shared event loop.
+
+**A DB lock (or the event loop) held across a network call**
+- A network call — payment processor, feed fetch, webhook POST — made *inside* an open DB write
+  transaction (`BEGIN IMMEDIATE` / `SELECT … FOR UPDATE`) serializes every other writer and 500s
+  them under real latency. Check that fields are gathered + the txn committed *before* the call.
+- A blocking network call inside an `async def` route freezes the whole event loop → the route
+  should be a plain `def`. Tests using mocked I/O never expose either.
+  Source: airbnb-website 6A M1 (Stripe call inside the write lock), 6B M1 (`urlopen` in `async def`).
+
+**An `except` narrower than the contract it backs**
+- A function documented "never raises" / "isolates per-item failure" whose `except` lists only
+  some exception families. Enumerate what the body can actually throw — DB (`SQLAlchemyError`),
+  stdlib network (`http.client`, `socket`), parse errors — and confirm each is caught + that the
+  failure is isolated (rollback, continue to the next item). Happy-path tests never hit these.
+  Source: airbnb-website 6B M2 — a feed-sync `except` missed `SQLAlchemyError`, 500'ing the page.
+
+**Untrusted data crossing a *later* trust boundary**
+- Input validated at intake but then following a redirect, landing in a CSV/export sink, or
+  flowing into an error message/log unescaped. Re-validate redirect targets (scheme + private-IP),
+  escape export cells (formula injection), and confirm no user value reaches a log/exception body.
+  Source: airbnb-website 6B M3 (SSRF via redirect), 6C M1 (CSV formula injection).
 
 **Off-by-one and falsy-zero**
 - Loop bounds that exclude an edge case
@@ -79,6 +127,19 @@ The reviewer hunts for specific patterns:
 - Without `nargs=-1`, unquoted multi-word input becomes "unexpected extra argument"
 - Default fix: `nargs=-1, required=True` + `" ".join(...)` at the top of the function
 - Source: Cortex `lt ask` papercut, caught in first-day real usage
+
+**Evidence-existence ≠ claim-support (any grounding/citation/RAG system)**
+- A system that grounds or cites claims must verify the citation actually *supports the
+  specific claim it's attached to* — not merely that the citation is real and exists somewhere.
+- Concretely: does the code check "is there a valid citation anywhere in the response" or does
+  it check "does *this* citation's content actually relate to *this* claim"? Only the second is
+  a real grounding guarantee.
+- A generator (LLM or otherwise) can pair a fabricated claim with genuine-but-unrelated
+  evidence and pass an existence-only check — e.g. answer "there's a rooftop helipad," cite a
+  real, verbatim "free parking" line from the source document. The citation is 100% real; the
+  claim is 100% fabricated; an existence-only check says `ok`.
+  Source: airbnb-website Phase 7 — the chatbot's grounding check verified quotes were verbatim
+  in the knowledge base but never tied the quote to the answer text it was attached to.
 
 ### Output format
 

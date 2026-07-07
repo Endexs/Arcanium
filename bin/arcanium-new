@@ -117,6 +117,24 @@ CLAUDE.md references these via \`skills/<category>/<name>\` (relative).
 EOF
 ok "vendored skills/{workflow,engineering,quality,process}/ from Arcanium v$VERSION"
 
+# ---------- 1c. vendor domain components into the project ----------
+# Same frozen-at-bootstrap vendor model as skills, one directory over. install.sh
+# treats this as opt-in (--components/--all) for RETROFITTING an existing project;
+# arcanium-new has no selective flags at all (see --help), so — to avoid repeating
+# the exact v0.7.0 latent bug where a category present in $ARC_ROOT silently never
+# made it into this second, separate vendor loop — every domain ships unconditionally
+# here, same as every skill category does above.
+if [ -d "$ARC_ROOT/components" ]; then
+    mkdir -p "$TARGET/components"
+    for domain in payment auth db; do
+        if [ -d "$ARC_ROOT/components/$domain" ]; then
+            cp -r "$ARC_ROOT/components/$domain" "$TARGET/components/"
+        fi
+    done
+    cp "$ARC_ROOT/components/README.md" "$TARGET/components/README.md" 2>/dev/null || true
+    ok "vendored components/{payment,auth,db}/ from Arcanium v$VERSION"
+fi
+
 # ---------- 2. rename {{PROJECT_SLUG_UNDERSCORE}} package directory ----------
 PKG_DIR="$TARGET/src/{{PROJECT_SLUG_UNDERSCORE}}"
 if [ -d "$PKG_DIR" ]; then
