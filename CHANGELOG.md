@@ -29,6 +29,38 @@ After project: <project-name>  (see retrospectives/<file>.md)
 
 ---
 
+## v0.9.2 — 2026-07-07
+After: the user asked "is it worth it to have a components section like this or is it kinda
+redundant?" — a fair challenge. Checking the claim surfaced real duplication: `quality/
+adversarial-review.md`'s checklist and the new `components/*/ANTIPATTERNS.md` domains cited the
+*same* incidents (6A DB-lock, 6B blocking-async, 6D refund race, the squared-L2 formula bug, the
+citation-existence gap) independently, because the domain files were seeded from incidents
+already sitting in the checklist.
+
+### Modified
+- `quality/adversarial-review.md` — slimmed five checklist entries (Race conditions; DB lock/
+  event loop; Untrusted-data-crossing-a-boundary's SSRF clause; Numerical formulas; Evidence-
+  existence) down to a short definition (kept, so the checklist stays scannable on its own)
+  plus a pointer to the relevant `components/<domain>/ANTIPATTERNS.md` + `PATTERNS.md` for the
+  full incident citation, worked example, and fix. Reduces duplicated content without removing
+  either system — the checklist still tells you *what* to look for; the domain file is now the
+  single source for *why* and *how to fix it*.
+
+### Notes
+- **Division of labor going forward:** `adversarial-review.md`'s own body is reserved for
+  patterns that are NOT domain-specific (falsy-None, resource cleanup, atomicity, spec
+  divergence, silent error swallowing, off-by-one, `assert`-in-prod, CLI quoting) — anything that
+  belongs to a `components/` domain gets a pointer there instead of duplicated text. New
+  checklist entries should default to this shape: if the pattern names a domain, it's a pointer;
+  if it's truly general, it stays in full.
+- **Why patch (0.9.2) not minor:** removes duplication, adds no new skill or domain, changes no
+  behavior — a pure content de-duplication.
+- Left as a live, undecided question (raised by the user, not resolved here): whether 6 component
+  domains is more than this ecosystem currently needs — `skill-audit.md`'s citation-based
+  keep/flag ritual doesn't yet apply to `components/` domains the way it does to skills. Worth
+  extending that ritual to component domains at the next audit cycle rather than assuming they
+  all earn their keep by default.
+
 ## v0.9.1 — 2026-07-07
 After: the user asked "how does a new project use the component we just created?" — checking the
 answer surfaced that it, honestly, didn't: `bin/arcanium-new` vendors the `components/` files

@@ -62,33 +62,25 @@ The reviewer hunts for specific patterns:
 - Functions returning None on error without a clear "did this succeed" signal
 
 **Race conditions** (Major+ on any web money/availability path — the suite can't see these)
-- Check-then-act patterns (TOCTOU)
-- Shared mutable state without locks
+- Check-then-act patterns (TOCTOU); shared mutable state without locks
 - **Two-at-once probe:** for every state mutation, ask "what if two of these run concurrently
   (webhook + success-redirect, a double-click, two admin tabs)?" A bare re-read is not a guard —
-  both callers can read the old state, diverge on the decision, and the loser overwrites the
-  winner. Demand an idempotency key (effect happens once) **and** a compare-and-swap / set-once
-  claim (`UPDATE … WHERE status=…`, act only if `rowcount==1`).
-  Source: airbnb-website 6D M1 — concurrent cancels refunded money while the ledger wrote `0`.
-- Note: still low severity for a single-user CLI; **high** for anything with money or a webhook.
-- **A concurrency/regression probe must be watched to fail before it's trusted.** Writing a
-  probe that "looks like" it exercises the race isn't enough — before trusting a green result,
-  temporarily revert the fix under test and confirm the probe goes red. A probe that passes
-  identically with and without the fix has proven nothing, only a plausible shape. Watch for
-  test-harness subtleties that quietly defeat the probe: e.g. a test client that gives each
-  concurrent call its own isolated event loop/connection (no shared state to race over) reads
-  as a real concurrency test but structurally cannot fail. Source: airbnb-website Phase 7 — a
-  concurrency probe for an event-loop-freeze bug passed both before and after the fix, because
-  it used a `TestClient` instance that was never entered as a context manager (`with
-  TestClient(app) as c:`), so each call got a fresh, non-shared event loop.
+  demand an idempotency key **and** a compare-and-swap / set-once claim.
+- **A concurrency/regression probe must be watched to fail before it's trusted** — a probe that
+  passes identically with and without the fix has proven nothing.
+- Still low severity for a single-user CLI; **high** for anything with money or a webhook.
+- Full incident citations, the idempotency+CAS pattern, and the exact test-harness gotcha that
+  can quietly defeat a concurrency probe: `components/concurrency/ANTIPATTERNS.md` #3–#4 and
+  `PATTERNS.md` #3–#4.
 
 **A DB lock (or the event loop) held across a network call**
-- A network call — payment processor, feed fetch, webhook POST — made *inside* an open DB write
-  transaction (`BEGIN IMMEDIATE` / `SELECT … FOR UPDATE`) serializes every other writer and 500s
-  them under real latency. Check that fields are gathered + the txn committed *before* the call.
-- A blocking network call inside an `async def` route freezes the whole event loop → the route
-  should be a plain `def`. Tests using mocked I/O never expose either.
-  Source: airbnb-website 6A M1 (Stripe call inside the write lock), 6B M1 (`urlopen` in `async def`).
+- A network call made *inside* an open DB write transaction (`BEGIN IMMEDIATE` / `SELECT ... FOR
+  UPDATE`) serializes every other writer and 500s them under real latency — check that fields
+  are gathered + the txn committed *before* the call.
+- A blocking network call inside an `async def` route freezes the whole event loop, not just the
+  one request making the call.
+- Full citations and both fix shapes (plain `def` vs. explicit `run_in_threadpool`):
+  `components/concurrency/ANTIPATTERNS.md` #1–#2 and `PATTERNS.md` #1–#2.
 
 **An `except` narrower than the contract it backs**
 - A function documented "never raises" / "isolates per-item failure" whose `except` lists only
@@ -99,9 +91,12 @@ The reviewer hunts for specific patterns:
 
 **Untrusted data crossing a *later* trust boundary**
 - Input validated at intake but then following a redirect, landing in a CSV/export sink, or
-  flowing into an error message/log unescaped. Re-validate redirect targets (scheme + private-IP),
-  escape export cells (formula injection), and confirm no user value reaches a log/exception body.
-  Source: airbnb-website 6B M3 (SSRF via redirect), 6C M1 (CSV formula injection).
+  flowing into an error message/log unescaped. Escape export cells (a leading `= + - @ \t \r`
+  is formula injection, CWE-1236); confirm no user value reaches a log/exception body.
+  Source: airbnb-website 6C M1 (CSV formula injection).
+- Redirect-target re-validation specifically (scheme + private/loopback/link-local IP, on every
+  hop, not just at registration): `components/external-integration/ANTIPATTERNS.md` #4 and
+  `PATTERNS.md` #2.
 
 **Off-by-one and falsy-zero**
 - Loop bounds that exclude an edge case
@@ -112,8 +107,9 @@ The reviewer hunts for specific patterns:
 - Any line that computes a similarity, distance, probability, or score from a library return value
 - Re-derive the formula from the library docs, not from the implementer's commentary
 - Common traps: cosine vs L2 vs squared L2; log-probability vs probability; loss vs score; degrees vs radians
-- Example: `sqlite-vec` returns squared L2 distance by default — `similarity = 1 - distance` is wrong; `1 - distance/2` is correct for unit vectors
-- Source: Cortex Phase 3 review — the squared-L2 formula bug
+- Worked example (`sqlite-vec` returns squared L2 by default; `similarity = 1 - distance` is
+  wrong) and the verification method: `components/db/ANTIPATTERNS.md` #5 /
+  `components/llm-integration/ANTIPATTERNS.md` #2 and their `PATTERNS.md` entries.
 
 **`assert` in non-test code for load-bearing checks**
 - Any `assert` outside of `tests/` that enforces a product-level invariant
@@ -131,15 +127,10 @@ The reviewer hunts for specific patterns:
 **Evidence-existence ≠ claim-support (any grounding/citation/RAG system)**
 - A system that grounds or cites claims must verify the citation actually *supports the
   specific claim it's attached to* — not merely that the citation is real and exists somewhere.
-- Concretely: does the code check "is there a valid citation anywhere in the response" or does
-  it check "does *this* citation's content actually relate to *this* claim"? Only the second is
-  a real grounding guarantee.
-- A generator (LLM or otherwise) can pair a fabricated claim with genuine-but-unrelated
-  evidence and pass an existence-only check — e.g. answer "there's a rooftop helipad," cite a
-  real, verbatim "free parking" line from the source document. The citation is 100% real; the
-  claim is 100% fabricated; an existence-only check says `ok`.
-  Source: airbnb-website Phase 7 — the chatbot's grounding check verified quotes were verbatim
-  in the knowledge base but never tied the quote to the answer text it was attached to.
+  A generator can pair a fabricated claim with genuine-but-unrelated evidence and pass an
+  existence-only check.
+- Full incident, the two-gate fix, and the residual-limitation caveat:
+  `components/llm-integration/ANTIPATTERNS.md` #3 and `PATTERNS.md` #3.
 
 ### Output format
 
