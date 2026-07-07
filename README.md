@@ -28,7 +28,7 @@ What you get at `/home/developer/projects/hello-rag/`:
 - `agents/reviewer/review-template.md` with the Critical/Major/Minor structure
 - `.claude/agents/fixer.md` (Haiku subagent for applying review findings)
 - `.claude/bin/ds-send` (direct DeepSeek wrapper, no Python venv dep)
-- `components/{payment,auth,db}/` (via-negativa domain knowledge — read a domain's
+- `components/{payment,auth,db,concurrency,llm-integration,external-integration}/` (via-negativa domain knowledge — read a domain's
   `ANTIPATTERNS.md` before implementing in it; see `engineering/component-library.md`)
 - `tests/conftest.py`, `pyproject.toml`, `.gitignore`, `src/<package>/__init__.py`
 - A clean `.venv/` with pytest installed
@@ -116,6 +116,12 @@ direct response to a cited antipattern). See `components/README.md` and
 - **payment/** — gateway integration, refunds, idempotency, money-amount computation
 - **auth/** — credential verification, session signing, constant-time comparison
 - **db/** — schema evolution, transaction/locking discipline, test-fixture connection sharing
+- **concurrency/** — DB locks across network calls, blocking I/O in async routes, single-writer
+  guards, and how to tell whether a concurrency test can actually fail
+- **llm-integration/** — token-truncation floors, vector-similarity conventions, grounding/
+  citation gates, streaming-response defensiveness, provider-swap architecture
+- **external-integration/** — validating a third-party dependency before building on it, redirect
+  re-validation, webhook signature verification
 
 ### templates/ — starting points for new projects
 - **CLAUDE.md.example** — composable project-level skill reference

@@ -17,6 +17,8 @@ contention or an outright `OperationalError`.
 **Source:** airbnb-website Phase 6A, Major finding M1 (`journal/retrospective.md`).
 **Why it's easy to miss:** a single-threaded, mocked-network test suite cannot see this —
 lock contention only manifests under real concurrency and real latency.
+**See also:** `components/concurrency/ANTIPATTERNS.md` #1 — this is a payment-specific instance
+of a general data-layer rule that recurred across three separate incidents in this ecosystem.
 
 ### 2. No single-writer guard on a state transition reachable from more than one trigger
 **Evidence: fixed after a real incident.**
@@ -31,6 +33,8 @@ because a bare re-read is not a guard against a second writer landing after your
 **Fix requires both halves:** an idempotency key (the *external* side effect happens once, even
 on retry) AND a compare-and-swap / claim on local state (`UPDATE ... WHERE status = 'confirmed'`,
 proceed only if exactly one row updated). Either alone is insufficient.
+**See also:** `components/concurrency/ANTIPATTERNS.md` #3 for the general (non-payment-specific)
+form of this rule.
 
 ### 3. Trusting the SDK response object's shape without checking the installed version
 **Evidence: fixed after a real incident.**

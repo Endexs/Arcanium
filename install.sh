@@ -37,7 +37,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG_DIR="$SCRIPT_DIR"
 
 CATEGORIES=(workflow engineering quality process)
-COMPONENT_CATEGORIES=(payment auth db)
+COMPONENT_CATEGORIES=(payment auth db concurrency llm-integration external-integration)
 TEMPLATE_FILES=(
   "templates/CLAUDE.md.example"
   "templates/spec.md.example"

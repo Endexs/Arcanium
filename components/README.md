@@ -61,6 +61,12 @@ Vendored the same way skills are — frozen at bootstrap, never live-referenced:
 - `payment/` — external payment gateways, money movement, refunds
 - `auth/` — authentication, session/credential handling
 - `db/` — schema evolution, transactions, concurrency at the data layer
+- `concurrency/` — DB locks across network calls, blocking I/O in async routes, single-writer
+  guards; the canonical home for a lesson that recurred across `payment/` and `db/` in three
+  separate incidents (see its `ANTIPATTERNS.md` for why it earned its own domain)
+- `llm-integration/` — LLM API calls, vector stores, grounding/citation systems
+- `external-integration/` — third-party dependencies, webhooks, feed URLs — validate before you
+  build on them (see `workflow/feasibility-first.md`, which this domain applies)
 
 New domains are added the same way: when a retrospective's root cause is domain-specific and
 recurs (or is severe enough to seed a domain on one incident, per `component-library.md`),

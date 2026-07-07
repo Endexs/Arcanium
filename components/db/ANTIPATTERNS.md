@@ -25,9 +25,9 @@ line coverage on a fresh-DB run, because the ALTER branch never fires.
 code in the suite until a legacy-schema test (`test_migration.py`) was added."
 
 ### 3. A DB write lock held across a blocking network call
-**Evidence: fixed after a real incident** (cross-domain — see `payment/ANTIPATTERNS.md` #1 for
-the specific incident; restated here because it's fundamentally a data-layer concurrency lesson,
-not a payment-specific one, and recurred in a second, unrelated shape).
+**Evidence: fixed after a real incident.** Canonical treatment now lives in
+`components/concurrency/ANTIPATTERNS.md` #1 (this lesson recurred beyond payment specifically —
+see that domain for the full citation and the two general fix shapes in its `PATTERNS.md`).
 Any code path that opens an eager write-lock transaction (`BEGIN IMMEDIATE`, `SELECT ... FOR
 UPDATE`) and then makes a slow outbound call before committing serializes every other writer for
 the duration of that call, under real latency that a mocked-network test never reproduces.

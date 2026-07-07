@@ -29,6 +29,47 @@ After project: <project-name>  (see retrospectives/<file>.md)
 
 ---
 
+## v0.9.0 — 2026-07-07
+After: a user question ("what other critical components do we have to keep track of besides
+db, payment, and auth?") that prompted mining the *existing* retrospectives (llm-gateway, Cortex,
+airbnb-llm-chat, airbnb-website) for recurring domain-specific evidence that hadn't yet been
+promoted into `components/`.
+
+### Added
+- **`components/concurrency/`** — 4 antipatterns + 4 patterns. Deliberately a *consolidating*
+  domain: the same root shape (a blocking/synchronous operation where concurrent work is
+  expected to proceed) had already been cited independently in `payment/` and `db/` across three
+  separate incidents (6A DB-lock-across-network-call, 6B blocking-urllib-in-async-route, 6D
+  no-CAS refund race) plus a fourth about verifying a concurrency test can actually fail
+  (Phase 7's TestClient-portal gotcha). Pulling it into one canonical domain, with cross-
+  references left in `payment/` and `db/`, follows the package's own over-split/re-merge
+  discipline (Cortex retrospective, Insight #6) applied to `components/` for the first time.
+- **`components/llm-integration/`** — 5 antipatterns + 5 patterns, sourced across *three*
+  projects: llm-gateway (silent token truncation, ×2 phases; a streaming chunk's `usage` field
+  `None` on intermediate chunks), Cortex (the squared-L2 distance-formula bug), and
+  airbnb-website Phase 7 (citation-existence ≠ claim-support; the Anthropic→DeepSeek provider
+  swap losing the native-citations guarantee). The strongest cross-project evidence of any
+  domain so far — recurring in independent projects, not just repeated phases of one.
+- **`components/external-integration/`** — 5 antipatterns + 3 patterns. Includes the single most
+  severe incident in this ecosystem: `airbnb-llm-chat` was cancelled entirely after a full phase
+  shipped on an unverified assumption about a third-party mechanism. Also covers webhook
+  signature verification and redirect re-validation (airbnb-website 6B M3, the Stripe webhook
+  handler). Applies `workflow/feasibility-first.md` as this domain's primary pattern rather than
+  duplicating it.
+- `install.sh` / `bin/arcanium-new` — `COMPONENT_CATEGORIES` extended to all six domains in both
+  vendor loops (same discipline as v0.8.0: wire into both at once, don't repeat the v0.7.0
+  latent-bug class of a category missing from one of the two).
+
+### Notes
+- **Why minor (0.9.0) not major:** three new domains, purely additive — no existing file's
+  meaning changed, no `CLAUDE.md` reference breaks. `payment/ANTIPATTERNS.md` #1/#2 and
+  `db/ANTIPATTERNS.md` #3 gained "See also" cross-references to `concurrency/`; their own content
+  is unchanged.
+- This is the first time a `components/` domain was created by *mining existing retrospectives*
+  for evidence already on file, rather than from a live incident during the triggering project.
+  The via-negativa evidence bar held regardless: every antipattern here still traces to a real,
+  cited incident — sourced from the past, not invented for the occasion.
+
 ## v0.8.0 — 2026-07-06
 After: airbnb-website (Phase 7 retrospective + this project's accumulated payment/auth/db
 history across Phases 1–6), plus one cross-project citation from second-brain-v2 (Cortex). User

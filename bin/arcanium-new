@@ -126,13 +126,13 @@ ok "vendored skills/{workflow,engineering,quality,process}/ from Arcanium v$VERS
 # here, same as every skill category does above.
 if [ -d "$ARC_ROOT/components" ]; then
     mkdir -p "$TARGET/components"
-    for domain in payment auth db; do
+    for domain in payment auth db concurrency llm-integration external-integration; do
         if [ -d "$ARC_ROOT/components/$domain" ]; then
             cp -r "$ARC_ROOT/components/$domain" "$TARGET/components/"
         fi
     done
     cp "$ARC_ROOT/components/README.md" "$TARGET/components/README.md" 2>/dev/null || true
-    ok "vendored components/{payment,auth,db}/ from Arcanium v$VERSION"
+    ok "vendored components/{payment,auth,db,concurrency,llm-integration,external-integration}/ from Arcanium v$VERSION"
 fi
 
 # ---------- 2. rename {{PROJECT_SLUG_UNDERSCORE}} package directory ----------
