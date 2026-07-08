@@ -79,6 +79,33 @@ already sitting in the checklist.
   extending that ritual to component domains at the next audit cycle rather than assuming they
   all earn their keep by default.
 
+## v0.10.0 — 2026-07-08
+After project: airbnb-website — see `retrospectives/` (incident occurred 2026-07-07/08, no
+dedicated retrospective file yet; sourced directly from the live conversation).
+
+### Added
+- `workflow/persist-load-bearing-findings.md` — an agent killed a systemd-managed production
+  service (mistaking it for a stray dev process), restarted it with the local dev launcher
+  instead, and silently broke the live payment gateway and host email notifications for ~20
+  minutes. It correctly diagnosed and fixed this, and explained it clearly in chat — but never
+  wrote the lesson to `CLAUDE.md` or memory. The user cleared the session; in the very next
+  session, a different task hit the same login issue and the agent made the *identical* mistake
+  again, because the only copy of the lesson was prose in a transcript that no longer existed.
+  The skill's rule: when a turn surfaces a fact that would cause the same mistake again if
+  forgotten, persist it to `CLAUDE.md`/memory in the SAME turn — a chat explanation, however
+  thorough, does not survive `/clear` and does not count.
+
+### Notes
+- Wired into "Always active" in both `starter/CLAUDE.md` and `templates/CLAUDE.md.example`
+  (this is a meta-process discipline that applies to every task, not gated by change size —
+  same tier as `rigor-triage` and `compact-or-clear`), plus airbnb-website's own `CLAUDE.md`
+  and vendored `skills/workflow/` copy, since that's where the incident occurred.
+- **Why minor (0.10.0) not patch:** a new skill file, not a fix to existing ones.
+- This skill is itself a live instance of its own rule: the first explanation of this exact
+  incident (in the previous session) was chat-only and evaporated on `/clear`. This entry, the
+  `CLAUDE.md` sections, and the memory file are the second, durable attempt — written the same
+  turn the gap was named.
+
 ## v0.9.1 — 2026-07-07
 After: the user asked "how does a new project use the component we just created?" — checking the
 answer surfaced that it, honestly, didn't: `bin/arcanium-new` vendors the `components/` files

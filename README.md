@@ -79,6 +79,7 @@ Skills that shape how you and the agent collaborate. Apply these regardless of w
 - **decision-log.md** — agent surfaces decisions with confidence + reversibility
 - **scope-cut-list.md** — every plan explicitly lists features it excluded
 - **agent-journal.md** — agent reflects on its own uncertainty after each run
+- **persist-load-bearing-findings.md** — a live-incident root cause or operational gotcha gets written to CLAUDE.md/memory the same turn it's discovered, not just explained in chat
 - **retrospective.md** — capture failures so they don't repeat across projects
 - **skill-audit.md** — periodic pruning ritual to keep the package slim
 
