@@ -29,6 +29,7 @@ Skills are vendored into `./skills/` at bootstrap time — fully self-contained,
 - `skills/workflow/spec-coach` — Socratic loop that auto-invokes on empty PM-owned spec sections; helps user fill blanks well without inventing
 - `skills/quality/good-enough-rubric` — five-question review, not perfectionism
 - `skills/quality/adversarial-review` — separate agent hunts for bugs (Critical / Major / Minor)
+- `skills/quality/security-review` — for any project with a public attack surface + money/auth/PII: a dedicated threat-model pass (authz/IDOR, cookie/CSRF hardening, injection, secret leakage), distinct from adversarial-review and a hard gate before go-live. Run `/security-review` or a per-domain agent fan-out
 - `skills/engineering/disable-flag-both-paths` — any disable/enable mechanism (feature flag, TTL=0, `--dry-run`) applies to every path it affects, not just the obvious one
 - `skills/engineering/boring-tech` — default to widely-used, well-documented, easy-to-swap tools; justify any non-default choice in the decision log
 - `skills/workflow/feasibility-first` — before committing to a new external dependency the project's value hinges on, run the cheapest probe to confirm it's usable before building around it

@@ -48,3 +48,66 @@ not a "strangers reading other users' data" risk, so it logs and continues rathe
 to start. Decide this per-secret in your own system; don't copy the fail-closed or the
 fail-loud-but-open choice reflexively onto every secret without asking what's actually at stake
 behind it.
+
+### 4. A private page keyed by an unguessable capability token, not its primary key
+**Responds to:** #5 (IDOR via sequential id on a page that renders private data).
+
+```python
+# The token is an intrinsic property of the row — a Python-side default so EVERY insert
+# path (ORM, service, test) gets one, never left to the caller to remember.
+confirmation_token: Mapped[str | None] = mapped_column(
+    String(64), default=lambda: secrets.token_urlsafe(32), nullable=True
+)
+
+@app.get("/confirmation/{token}")            # {token}, never {booking_id}
+async def confirmation(token: str, ...):
+    booking = None
+    if token:                                # reject a falsy token BEFORE querying, so a
+        booking = session.scalars(           # legacy NULL column can never be matched
+            select(Booking).where(Booking.confirmation_token == token)
+        ).first()
+    if not booking or booking.status != "confirmed":
+        raise HTTPException(status_code=404)  # same 404 for wrong-token and missing → no oracle
+```
+The additive migration that introduces the column must **backfill existing rows** with their own
+tokens and add a unique index — otherwise legacy rows are orphaned from their own URL. Add
+`Referrer-Policy: no-referrer` on the page and redact the token from access logs: a capability in
+the URL is a secret. The sequential id stays fine on the *session-gated* admin view.
+
+### 5. Derive cookie hardening from the environment signal, not a per-deploy opt-in flag
+**Responds to:** #6 (opt-in `Secure` flag that defaults off).
+
+```python
+app_env = os.environ.get("APP_ENV", "").strip().lower()
+https_only = (
+    app_env == "production"                                      # prod is Secure by construction
+    or os.environ.get("ADMIN_HTTPS_ONLY", "").strip().lower() in ("1", "true", "yes")
+)
+app.add_middleware(SessionMiddleware, ..., same_site="lax", https_only=https_only)
+```
+A forgotten flag can no longer downgrade production; local http dev (no `APP_ENV=production`)
+still works; a TLS staging box can opt in explicitly. The insecure state is the one you have to
+ask for, not the one you get by omission.
+
+### 6. Per-session synchronizer CSRF token on every state-changing request
+**Responds to:** #7 (`SameSite=lax` mistaken for CSRF protection).
+
+```python
+def get_csrf_token(request):                        # mint once per session, stable
+    tok = request.session.get("csrf_token")
+    if not tok:
+        tok = secrets.token_urlsafe(32)
+        request.session["csrf_token"] = tok
+    return tok
+
+def require_csrf(request, csrf_token: str = Form("")):
+    expected = request.session.get("csrf_token")
+    if not expected or not secrets.compare_digest(csrf_token, expected):  # fail closed
+        raise HTTPException(status_code=403, detail="CSRF token missing or invalid")
+```
+Wire `require_csrf` **after** the auth dependency on every mutating route (auth first → an
+unauthenticated request redirects to login, never leaks a 403). Inject the token into every form
+via a template context processor so you can't forget one; `session.clear()` on login to rotate.
+Not needed on the login POST (no session yet) or read-only routes. Note `not expected` short-
+circuits *before* `compare_digest`, so a never-minted session token fails cleanly rather than
+raising on `compare_digest(x, None)`.
