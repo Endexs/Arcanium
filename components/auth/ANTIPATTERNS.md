@@ -52,3 +52,54 @@ stake behind it); a missing *session-signing key* can gracefully degrade (log lo
 serving, sessions just don't survive a restart) because the failure mode is inconvenience, not a
 security hole. Which failure mode fits depends on what's actually at risk — don't reflexively
 apply the harder failure mode everywhere, or the softer one everywhere; decide per secret.
+
+### 5. A page that renders private data, addressed by a guessable sequential id
+**Evidence: fixed after a security-review finding on a live, public site.**
+An unauthenticated page keyed by an auto-increment integer primary key lets anyone walk
+`1, 2, 3, …` and read every row — a textbook IDOR. It's especially easy to ship because the URL
+the legitimate owner receives (a confirmation / receipt link) *looks* private and the route
+"works," so it sails through a happy-path test and through a correctness-first review that isn't
+specifically hunting for enumeration.
+**Source:** airbnb-website `/confirmation/{booking_id}` — the receipt page rendered a confirmed
+booking's guest name, dates, amount, and Stripe PaymentIntent id, gated only on
+`status == "confirmed"` and keyed by the sequential PK. Anyone could enumerate every guest's PII.
+Found by `security-review` (a systematic threat-model pass), never by the per-phase adversarial
+review that had hardened that same route *twice* for unrelated 500s.
+**Fix:** key any page that renders private data on an unguessable per-row capability token
+(`secrets.token_urlsafe(32)`), not the PK; look the row up by token; return the *same* 404 for a
+wrong token as for a missing row so the endpoint isn't an existence oracle. A sequential id stays
+fine on a *session-gated* admin view — the enumeration risk is specifically the
+unauthenticated / cross-tenant one. See PATTERNS #4.
+
+### 6. A cookie-`Secure` (or any hardening) flag that defaults OFF and is opt-in per deploy
+**Evidence: fixed after a security-review finding; a `disable-flag-both-paths` sibling.**
+When the `Secure` flag on a session/auth cookie is driven by an opt-in env var that defaults to
+off, *forgetting* that var in a production env file silently ships an auth cookie a network
+attacker can capture over any plaintext/downgraded request. The default is the danger: the safe
+state depends on an operator remembering a flag, and the failure is invisible — the site works
+fine, the cookie just quietly lacks one attribute.
+**Source:** airbnb-website `app.py` — `https_only` came from `ADMIN_HTTPS_ONLY` defaulting off; a
+prod env that set `APP_ENV=production` but omitted `ADMIN_HTTPS_ONLY=1` served the admin session
+cookie without `Secure`.
+**Fix:** derive the hardened state from the environment's *own* signal, not a separate opt-in:
+`https_only = (APP_ENV == "production") or ADMIN_HTTPS_ONLY_truthy`. Production is Secure by
+construction, a missing flag can no longer downgrade it, and a non-prod TLS box can still opt in.
+Same shape as `disable-flag-both-paths`: the hardened path is the *default*, and any weakening is
+the thing you must explicitly ask for. See PATTERNS #5.
+
+### 7. Treating `SameSite=lax` as CSRF protection for state-changing requests
+**Evidence: fixed after a security-review finding.**
+`SameSite=lax` blocks classic *cross-site* form/image POSTs, so it's tempting to conclude a
+server-rendered admin panel is CSRF-safe with no token. But Lax is a same-***site*** control, not
+same-***origin***: a request from any host on the same registrable domain (a marketing subdomain,
+a CNAME'd service, a compromised sibling app) counts as same-site and the cookie rides along —
+enough to forge a money-moving admin action.
+**Source:** airbnb-website admin panel — 16 state-changing admin POSTs relied on `SameSite=lax`
+alone with no token; a sibling-subdomain forgery of `/admin/bookings/{id}/cancel` (a real Stripe
+refund) or `/admin/listing` was reachable.
+**Fix:** add a per-session synchronizer CSRF token to *every* state-changing request (not only the
+ones Lax happens to miss), validated constant-time and fail-closed on a missing session token;
+check it *after* the auth dependency so an unauthenticated request still redirects to login rather
+than leaking a 403. Rotate the session on login (`session.clear()` before setting the
+authenticated flag) so a pre-auth, attacker-plantable token can't be fixated into the
+authenticated session. See PATTERNS #6.

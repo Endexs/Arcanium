@@ -29,6 +29,37 @@ After project: <project-name>  (see retrospectives/<file>.md)
 
 ---
 
+## v0.11.0 — 2026-07-09
+After project: airbnb-website (see retrospectives/2026-07-airbnb-security-review.md)
+
+A live, public money/auth/PII site reached go-live with a textbook enumerable IDOR that the
+active `adversarial-review` never looked for — because correctness review and threat modeling are
+different sweeps and only the former was active. This cycle adds the missing instrument.
+
+### Added
+- `quality/security-review` — a dedicated threat-model pass (authz/IDOR, cookie/CSRF hardening,
+  injection, secret leakage), distinct from `adversarial-review` and a hard gate before go-live
+  for any public money/auth/PII app. Source: airbnb-website `/confirmation/{booking_id}` — a
+  receipt page keyed by a sequential PK leaked every guest's PII by enumeration; found only by a
+  systematic `/security-review`, never by the correctness reviews that had hardened that route twice.
+- `components/auth/ANTIPATTERNS.md` #5–#7 + `components/auth/PATTERNS.md` #4–#6 — IDOR via a
+  sequential id on a private page; opt-in `Secure`-cookie default (a `disable-flag-both-paths`
+  sibling); `SameSite=lax` mistaken for CSRF. First `components/auth` entries sourced from a
+  security-review finding rather than a correctness bug.
+
+### Modified
+- `starter/CLAUDE.md` — `quality/security-review` listed as active for medium+ changes, so new
+  projects inherit the go-live security gate instead of bolting it on.
+
+### Notes
+- A `components/deployment/` domain is *proposed but not created*: "merge ≠ deploy — verify the
+  running artifact, not the source" now has two cited incidents (this pass, where a merged IDOR
+  fix served stale for ~13h because uvicorn has no `--reload`; and the earlier `run.sh` one).
+  Captured for now as a clause in `security-review.md` + the project's CLAUDE.md; promote to a
+  full domain on a third instance.
+- CHANGELOG had no `v0.10.0` entry (the `persist-load-bearing-findings` add was committed without
+  one); left as-is rather than reconstructed.
+
 ## v0.9.3 — 2026-07-07
 After: v0.9.2's de-duplication removed the one-line `Source: ...` citation along with the full
 worked-example text it was bundled with — the user asked for the citation back specifically, for
