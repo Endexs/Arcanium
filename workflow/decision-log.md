@@ -19,7 +19,18 @@ Every plan must include a "Decisions" section with entries like:
 **Confidence**: high | medium | low
 **Reversibility**: easy | hard
 **Validated** (external-facing decisions only): yes (cite source) | no | n/a
+**Risky lines** (optional): `path:line` — what specifically you're unsure of
 ```
+
+### Flag the risky *lines*, not just the decision
+A decision entry names a choice; it doesn't say which code that choice made shaky. When the agent
+writes something it isn't sure of — a formula it derived rather than looked up, a conditional whose
+edge case it guessed, a name it couldn't verify — it names the specific `path:line` in **Risky
+lines** so review starts there instead of reading everything at uniform attention.
+
+This is where an implementer's uncertainty surfaces (see `[[implementer-handoff]]`). Write it at
+*plan and write* time, while it's still cheap to act on — not as a post-hoc reflection after the
+code exists, which is too late to change the approach.
 
 The **Validated** axis applies to any decision that depends on a system you don't control — a third-party API, a platform behavior, an integration you assume exists. "Validated: yes" requires a verification source (a probe, a header check, an API response); "the user wants it" is not validation — that's confidence in the goal, not proof the capability exists. Use `n/a` for self-contained decisions (schema, module layout, error format).
 

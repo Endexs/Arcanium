@@ -57,7 +57,7 @@ Vendored the same frozen-at-bootstrap way as skills — never live-referenced ba
 package. `./install.sh --components <project>` (or `--all`). See `components/README.md`.
 
 ### Relationship to the retrospective/skill-audit cycle
-`workflow/retrospective.md` names this as an explicit step: when a phase's root cause is
+`lifecycle/retrospective.md` names this as an explicit step: when a phase's root cause is
 domain-specific, the antipattern entry is written to `components/<domain>/ANTIPATTERNS.md`
 *before* the retrospective entry is considered complete — not as an optional follow-up. This
 keeps the component library fed from the same ritual that already produces skill changes, rather

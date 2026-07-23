@@ -29,6 +29,180 @@ After project: <project-name>  (see retrospectives/<file>.md)
 
 ---
 
+## v0.14.0 — 2026-07-23
+Source: **user request**, enabled by the single-gateway (OmniRoute) setup. No retrospective.
+
+With every provider behind one endpoint, choosing a model became a per-task decision rather than an
+integration project — so it needed a rule before it became ad-hoc habit.
+
+### Added
+- `workflow/model-routing` — pick a model tier (T1/T2/T3) by **complexity and verifiability, never
+  by size**, and state it next to the rigor tier: `Rigor: Standard · Model: T2 — <reason>`.
+
+  Two invariants carry the skill. **Complexity sets the floor; criticality only ever raises it.**
+  And: **route down only when something will catch a failure** — a frozen gate, a test suite, a type
+  checker. No gate ⇒ no down-tiering.
+
+  The naive form of this rule ("simple task, cheap model") is the dangerous one, because "simple"
+  gets measured in diff size and the most expensive failures are one-line changes to critical code.
+  That's the same lesson `rigor-triage` already encodes for *process* — the dial is on the change,
+  not the file — applied to model choice. The economics are asymmetric and usually misread: a cheap
+  model that succeeds saves a fraction of one call, while a cheap model that fails costs its tokens
+  *plus* the retry *plus* reviewer attention *plus* the chance a subtle error ships. Hence the same
+  tie-break: round up.
+
+  Also encodes **role floors** (plan T3; gate author ≥ implementer; review ≥ implementer *and* a
+  different family; fix T1), and **escalate-don't-retry**: repeated failure at a tier is evidence of
+  mis-triage, not of needing one more attempt.
+
+### Modified
+- `starter/CLAUDE.md` — the pipeline table now states **tier floors** (T3/≥implementer/T2/≥implementer/T1)
+  instead of hardcoded vendor names, making it model-agnostic. "Fusion roster" became the **Model
+  roster**, now serving both skills: `MODEL_TIERS` for routing plus `FUSION_MODELS`/`MERGER` for
+  fusion, with one shared `PER_MODEL_OVERRIDES`.
+- `workflow/model-fusion`, `WORKFLOW.md`, `README.md`, `templates/CLAUDE.md.example` — updated for
+  the renamed roster block and the new skill.
+
+### Notes
+**Why a separate skill and not a `rigor-triage` bullet.** These share a trigger (start of task),
+which by the Cortex over-split discipline argues for merging. They're kept apart because the
+*actions* differ and the dependency is directional: `rigor-triage` answers "how much process?" from
+**criticality**, and `model-routing` then answers "which model?" from **complexity and
+verifiability**, consuming the criticality verdict as its floor. Merging would also bloat
+`rigor-triage`, which is inlined into always-on global instructions. They are stated together on one
+line so the coupling stays visible in practice.
+
+**A tier is not a family.** T1/T2/T3 may all resolve to one vendor's line — fine for routing, but
+invalid for fusion and for the reviewer's different-family rule. The roster block says so in place,
+because a single gateway namespace is exactly where that distinction gets lost.
+
+**Category count.** `workflow/` goes 9 → 10, back over the ~6 cap one version after the v0.13.0
+audit brought it down. Recorded rather than hidden: the cap is a forcing function, and the honest
+reading is that `workflow/` will need a second split (per-task *triage* vs per-task *artifacts*) if
+it keeps growing. Not doing that on one skill's evidence.
+
+---
+
+## v0.13.0 — 2026-07-23
+Source: **`lifecycle/skill-audit` run on `workflow/`** (window: `2026-06-cortex`,
+`2026-06-airbnb-llm-chat`, `2026-07-airbnb-security-review`). No new project retrospective.
+
+`workflow/` had reached 13 skills against LOOP.md's ~6-per-category cap. The audit found only
+**one** genuinely dead skill — the cap was unreachable by deletion because the category was doing
+two unrelated jobs. Fixed structurally rather than by cutting skills that work.
+
+### Added
+- `WORKFLOW.md` — a map of the three non-overlapping systems (session context / project pipeline /
+  improvement loop), written because the moving parts had become genuinely hard to hold in one
+  head. Leads with the fact that trips everyone: **Arcanium's skills are not active while you edit
+  Arcanium** — this repo has no root `CLAUDE.md` and skills are vendored frozen into generated
+  projects, so editing the package does not affect the session editing it.
+- `lifecycle/` — new category for skills that fire *around* the work rather than during it.
+  `workflow/` is what you do on a task; `lifecycle/` is what outlives it.
+
+### Moved
+- `workflow/retrospective` → `lifecycle/retrospective`
+- `workflow/skill-audit` → `lifecycle/skill-audit`
+- `workflow/persist-load-bearing-findings` → `lifecycle/persist-load-bearing-findings`
+
+`workflow/` 13 → **9**, `lifecycle/` → **3**. Both now sit near the cap honestly. The cap did its
+real job here: it was a forcing function to *restructure*, not a quota to hit by deleting useful
+skills. (Note: `persist-load-bearing-findings` fires mid-turn, not between projects — it earns its
+place here on the shared axis of *making knowledge durable*, not on timing.)
+
+### Deleted
+- `workflow/agent-journal` — the audit's one real cut. Zero citations across the 3-project window
+  (last cited in project zero, `llm-gateway`). **Superseded**: its job — the agent surfacing its own
+  uncertainty — is now done by `decision-log`'s Confidence/Reversibility/Validated axes at *plan*
+  time, where it's still cheap to act on, rather than as a post-hoc reflection after the code
+  exists. Its one distinct idea was preserved, not discarded (see Modified).
+
+### Modified
+- `workflow/decision-log` — grafted `agent-journal`'s surviving idea: an optional **Risky lines**
+  field naming the specific `path:line` the agent is unsure of, so review starts there instead of
+  reading everything at uniform attention.
+- `engineering/implementer-handoff`, `process/compact-or-clear` — repointed their now-dangling
+  `[[agent-journal]]` cross-links to `[[decision-log]]` and `[[persist-load-bearing-findings]]`.
+- `install.sh` (`CATEGORIES`), `bin/arcanium-new` (vendor loop), `README.md`,
+  `starter/CLAUDE.md`, `engineering/component-library` — updated for the new category and paths.
+- `retrospectives/2026-06-cortex-phase1-pm-checklist.md` — explicitly excluded from audit counting.
+  It's a mid-project lesson with no "Skills used" section by design; the Cortex usage it would
+  report is already counted by `2026-06-cortex.md`, and counting both would double-weight one
+  project in the 3-project window.
+
+### Audit record — kept, with reasons
+`skill-audit` requires a recorded reason **even for keeps**, so future-you knows why these survived:
+
+| Skill | Cited | Why it stays |
+|---|---|---|
+| `spec-first` | 3/3 + *What worked* | Earned its rent in every project in the window |
+| `pm-checklist` | 2/3 + *What worked* | Cortex: user praised it unprompted |
+| `scope-cut-list` | 2/3 | Consistent background use |
+| `decision-log` | 2/3 | Consistent; now also carries the validated-and-load-bearing override |
+| `persist-load-bearing-findings` | 1/3 + *What worked* | New in v0.10.0, already earned a win |
+| `retrospective`, `skill-audit` | 1/3 each | Load-bearing meta — they *are* the loop |
+| `rigor-triage` | **0/3** | Citation count is misleading: it's inlined in the global `CLAUDE.md` and applied on every task. It routes whether the rest of the pipeline runs at all |
+| `feasibility-first` | **0/3** | Postdates its own incident — created *from* the airbnb-llm-chat cancellation, and no greenfield project with an external dependency has run since. Rule-4 insurance: the failure mode is project cancellation |
+| `spec-coach` | **0/3** | **Flagged, watching.** Largest workflow skill, defaults ON, never cited. Overlaps `pm-checklist` in goal but differs in trigger (interactive Socratic vs. batch file). One more project; if it still doesn't fire, merge it into `pm-checklist` |
+| `gate-first-validation`, `model-fusion` | n/a | Added in v0.12.0 today; not yet eligible for a window |
+
+### Notes
+**Versioning judgment call.** LOOP.md's rules make "breaking reorganization that requires updating
+project CLAUDE.md references" a *major* bump, and this recategorization technically qualifies. Kept
+at minor because skills are **vendored frozen** — no existing project breaks in place; only newly
+bootstrapped projects and deliberate `install.sh --force` re-syncs see the new paths. 1.0 should be
+a deliberate "this package is stable" statement, not a side effect of an internal file move.
+Override this if you disagree — it's a one-line change.
+
+---
+
+## v0.12.0 — 2026-07-23
+Source: **external idea** — the fusion-harness project (github.com/disler/fusion-harness).
+No retrospective; see Notes.
+
+Our multi-agent pipeline is a **relay** — plan → implement → review → fix, each model handing to
+the next. Two shapes were missing from it, and both came from outside rather than from a shipped
+bug: nothing made "done" objective *before* a builder started, and no two models ever solved the
+*same* problem independently. This cycle ports both, adapted to Claude Code (Workflow tool +
+a single-gateway wrapper) rather than vendored from the original Pi extension.
+
+### Added
+- `workflow/gate-first-validation` — an executable acceptance gate is authored **before**
+  implementation by an agent that isn't the builder, proven red at baseline, then **frozen**; the
+  loop runs build→gate until green or a bounded halt at N=3. Closes the gap that
+  `adversarial-review` structurally cannot: a post-hoc critic returns model judgment and can't stop
+  a builder from quietly redefining "done" to whatever it produced. A green baseline is treated as
+  a broken gate (`raise RuntimeError`), and the builder may never edit the gate — it escalates
+  instead, which is the anti-gaming rule that keeps self-validating loops honest.
+- `workflow/model-fusion` — on high-stakes forks only, 2–3 models from **distinct families** solve
+  the same problem in parallel and an authorship-blind merger reconciles them into one result
+  carrying consensus / divergence / rejected provenance (quorum at N=3). Budgeted to forks that are
+  expensive to get wrong, since it costs 2–3× a single run.
+
+### Modified
+- `starter/CLAUDE.md` — registered both skills under "Active for medium+ changes", and added the
+  **Fusion roster** block beneath the multi-agent pipeline table: the single config point where
+  models are named, so the skills themselves stay vendor-free.
+- `README.md` — both skills listed under `workflow/`.
+
+### Notes
+**Provenance departure.** Every prior entry traces to a retrospective — "every retrospective without
+a skill change is theater." This one inverts that: an external pattern adopted *before* it cost us a
+bug. Recorded as such rather than fabricating a retro file to satisfy the format. The honest test is
+still ahead: if neither skill fires on the next Full-tier project, `skill-audit` should cut them.
+
+**Single-gateway assumption.** Both skills assume all providers sit behind one OpenAI-compatible
+gateway (OmniRoute) reached through a single `.claude/bin/omni-send` wrapper, collapsing the
+per-vendor wrappers (`ds-send` and friends) into one and reducing the roster to model-id strings.
+That convenience creates the failure mode `model-fusion` guards hardest: when every model is one
+string in one namespace, listing two siblings of the same family *looks* like diversity and isn't.
+The gateway also unifies the endpoint but **not** the params — the 65536 thinking-token floor still
+applies per-model — and it concentrates rate limits and outages into one bucket, so a dropped slot
+must degrade fusion to N−1 *in the provenance block* rather than silently returning one model's
+answer as consensus.
+
+---
+
 ## v0.11.0 — 2026-07-09
 After project: airbnb-website (see retrospectives/2026-07-airbnb-security-review.md)
 

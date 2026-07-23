@@ -142,4 +142,4 @@ A second anti-pattern: bloating "Library gotchas" with everything you might use.
 - `[[spec-first]]` — the spec is the source of truth for *what* to build; this skill governs the *prompt* used to delegate the building
 - `[[preserve-existing]]` — both skills exist because implementer models systematically lose context the orchestrator has; this one prevents missing context, that one prevents removed context
 - `[[adversarial-review]]` — when this skill fails (hallucinated name or bad formula sneaks through), the adversarial reviewer is the next line of defense
-- `[[agent-journal]]` — when the implementer is uncertain about a name or formula, the journal is where it flags the doubt
+- `[[decision-log]]` — when the implementer is uncertain about a name or formula, the decision entry is where the doubt gets flagged (with its confidence and the specific risky lines)
