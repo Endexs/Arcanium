@@ -18,8 +18,9 @@ Skills are vendored into `./skills/` at bootstrap time — fully self-contained,
 - `skills/engineering/preserve-existing` — never wholesale-rewrite files; preserve undocumented patterns
 - `skills/quality/non-negotiable-paths` — auth / money / data deletion always get the full pipeline; load-bearing invariants use `raise RuntimeError(...)`, never `assert`
 - `skills/workflow/rigor-triage` — at the start of each task, pick the right process: full pipeline for critical code (payment/auth/data), one-shot vibe-code for cosmetic/reversible work (layout/copy); round up when unsure
+- `skills/workflow/model-routing` — then pick the model tier (T1/T2/T3) by complexity and verifiability, never by diff size. Complexity sets the floor; criticality only raises it. Route down only when a gate/test will catch failure. State both: `Rigor: Standard · Model: T2 — <reason>`
 - `skills/process/compact-or-clear` — tells you when to `/clear` vs `/compact` vs keep going, so long sessions don't bleed tokens + latency
-- `skills/workflow/persist-load-bearing-findings` — a live-incident root cause or operational gotcha gets written to CLAUDE.md/memory in the SAME turn it's discovered, not just explained in chat
+- `skills/lifecycle/persist-load-bearing-findings` — a live-incident root cause or operational gotcha gets written to CLAUDE.md/memory in the SAME turn it's discovered, not just explained in chat
 
 ### Active for medium+ changes
 - `skills/engineering/implementer-handoff` — every implementer LLM call must include Names-in-scope, Library-gotchas, Output-budget blocks
@@ -30,18 +31,19 @@ Skills are vendored into `./skills/` at bootstrap time — fully self-contained,
 - `skills/quality/good-enough-rubric` — five-question review, not perfectionism
 - `skills/quality/adversarial-review` — separate agent hunts for bugs (Critical / Major / Minor)
 - `skills/quality/security-review` — for any project with a public attack surface + money/auth/PII: a dedicated threat-model pass (authz/IDOR, cookie/CSRF hardening, injection, secret leakage), distinct from adversarial-review and a hard gate before go-live. Run `/security-review` or a per-domain agent fan-out
+- `skills/workflow/gate-first-validation` — Full-tier work only: author an executable acceptance gate BEFORE implementing, prove it fails red, freeze it (the builder may never edit it), then loop build→gate until green or halt after N=3. Runs before adversarial-review, not instead of it
+- `skills/workflow/model-fusion` — high-stakes forks only (architecture, non-negotiable paths): 2–3 models from **distinct families** solve the same problem in parallel; an authorship-blind merger reconciles with consensus/divergence provenance. Costs 2–3×, so budget it to forks that are expensive to get wrong. Roster lives in the Model roster block below
 - `skills/engineering/disable-flag-both-paths` — any disable/enable mechanism (feature flag, TTL=0, `--dry-run`) applies to every path it affects, not just the obvious one
 - `skills/engineering/boring-tech` — default to widely-used, well-documented, easy-to-swap tools; justify any non-default choice in the decision log
 - `skills/workflow/feasibility-first` — before committing to a new external dependency the project's value hinges on, run the cheapest probe to confirm it's usable before building around it
-- `skills/workflow/agent-journal` — for non-trivial changes, close with a short reflection (certain vs. uncertain vs. judgment calls) so risky lines get flagged before they become bugs
 - `skills/engineering/component-library` — before payment/auth/db/concurrency/llm-integration/external-integration work, read `components/<domain>/ANTIPATTERNS.md` first, then `PATTERNS.md` for the reference shape. See `components/README.md`.
 
 ### Active for large features (>6 files)
 - `skills/process/split-run-implementation` — partition into dependency-ordered parts of 3–4 files each; avoids silent mid-file token truncation
 
 ### Active for end-of-project
-- `skills/workflow/retrospective` — end-of-project lessons; commit to a public or local Arcanium retrospectives folder
-- `skills/workflow/skill-audit` — list "Skills used this project" in the retrospective
+- `skills/lifecycle/retrospective` — end-of-project lessons; commit to a public or local Arcanium retrospectives folder
+- `skills/lifecycle/skill-audit` — list "Skills used this project" in the retrospective (this section is the audit's only real input — omitting it makes the project invisible to every future audit)
 
 > **Note on skill updates**: Skills are frozen at the version stamped in `skills/README.md`. A central Arcanium update will NOT propagate to this project. To re-sync: run `install.sh --local "$(pwd)" --force` from your Arcanium checkout. Frozen skills are a feature, not a bug — a v0.5.0 change shouldn't retroactively break a project that worked under v0.4.0.
 
@@ -76,15 +78,52 @@ When working on or reviewing `spec/spec.md`, treat empty sections as **gaps to f
 
 ## Multi-agent pipeline
 
-| Phase | Model | Artifact |
+| Phase | Tier (floor) | Artifact |
 |------|------|------|
 | PM decisions | (user, async) | `agents/planner/pm-checklist.md` |
-| Plan | Opus | `agents/planner/phaseN-plan.md` |
-| Implement | DeepSeek V4 Pro via `.claude/bin/ds-send` | code |
-| Review | Opus (adversarial) | `agents/reviewer/phaseN-review.md` |
-| Fix | Haiku via `.claude/agents/fixer.md` | code |
+| Plan | **T3** | `agents/planner/phaseN-plan.md` |
+| Gate author | **≥ implementer tier** | the frozen acceptance gate |
+| Implement | **T2** (T1 only if verifiable + non-critical; T3 on non-negotiable paths) | code |
+| Review | **≥ implementer tier, different family** | `agents/reviewer/phaseN-review.md` |
+| Fix | **T1** | code (`.claude/agents/fixer.md`) |
 
-`max-tokens` floor of 65536 for any thinking-mode implementer (DeepSeek V4 Pro, o-series). Thinking burns ~24K silently before content; smaller budgets truncate mid-file.
+These are **floors**, not fixed assignments — `skills/workflow/model-routing` picks the actual tier
+per task from complexity and verifiability, and may only route *up* from here.
+
+### Model roster
+
+The **only** place models are named. Serves `skills/workflow/model-routing` (tiers) and
+`skills/workflow/model-fusion` (roster). Update when the frontier moves; the skills themselves name
+roles, never vendors. All ids route through one gateway (OmniRoute) via a single
+`.claude/bin/omni-send` wrapper — no per-vendor wrapper needed.
+
+```
+MODEL_TIERS:              # routing ladder — see skills/workflow/model-routing
+  T1: <model-id>          # cheap/fast — mechanical, fully specified, verifiable work
+  T2: <model-id>          # mid — normal work against a clear plan
+  T3: <model-id>          # frontier — reasoning, ambiguity, judgment, critical paths
+
+FUSION_MODELS:            # 2 or 3 slots, each a model-id string the gateway routes
+  - <model-id-A>          # frontier reasoning model
+  - <model-id-B>          # MUST be a different family than A
+  - <model-id-C>          # optional 3rd, different family again
+MERGER: <model-id>        # strongest reasoner; sees candidates with authorship stripped
+
+PER_MODEL_OVERRIDES:      # the gateway unifies the endpoint, NOT the params
+  <model-id>: { max_tokens: 65536, temperature: 0.2 }   # thinking floor below still applies
+```
+
+`max-tokens` floor of 65536 for any thinking-mode model. Thinking burns ~24K silently before
+content; smaller budgets truncate mid-file — which reads as a *model* failure but is a *config* one.
+
+**A tier is not a family.** T1/T2/T3 may all resolve to one vendor's line — fine for routing, but
+**not** valid for fusion or for the reviewer's different-family rule. Two models from the same family
+is not a valid `FUSION_MODELS` roster: fusion's value is cross-family disagreement, and a single
+gateway namespace makes that collision easy to miss.
+
+If a tier or provider is unavailable (429/5xx), **escalate — never silently downgrade.** Fusion
+continues at N−1 and says so in its provenance block; it never returns one model's answer as
+consensus.
 
 ## Project-specific conventions
 

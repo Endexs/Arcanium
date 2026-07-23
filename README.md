@@ -74,14 +74,13 @@ Skills that shape how you and the agent collaborate. Apply these regardless of w
 - **feasibility-first.md** — prove the project's load-bearing external dependency before writing the spec, not after shipping a phase
 - **spec-first.md** — write intent before code; spec is the source of truth
 - **rigor-triage.md** — at the start of a task, pick full-pipeline vs standard vs one-shot vibe-code by criticality (blast radius × reversibility), not by size
+- **model-routing.md** — then pick the model tier by complexity and verifiability: complexity sets the floor, criticality only raises it, and you may route down only when a gate or test will catch the failure
+- **gate-first-validation.md** — on Full-tier work, author an executable acceptance gate *before* implementing, prove it red, freeze it, then loop build→gate until green or a bounded halt
+- **model-fusion.md** — on a high-stakes fork, N models (2–3, distinct families) solve the same problem in parallel and a blind merger reconciles them with consensus/divergence provenance
 - **spec-coach.md** — Socratic loop that auto-invokes on empty PM-owned spec sections; helps user fill blanks well without inventing
 - **pm-checklist.md** — when a spec has 5+ PM-owned decisions, produce a checklist file instead of asking inline
-- **decision-log.md** — agent surfaces decisions with confidence + reversibility
+- **decision-log.md** — agent surfaces decisions with confidence + reversibility, and names the specific risky lines
 - **scope-cut-list.md** — every plan explicitly lists features it excluded
-- **agent-journal.md** — agent reflects on its own uncertainty after each run
-- **persist-load-bearing-findings.md** — a live-incident root cause or operational gotcha gets written to CLAUDE.md/memory the same turn it's discovered, not just explained in chat
-- **retrospective.md** — capture failures so they don't repeat across projects
-- **skill-audit.md** — periodic pruning ritual to keep the package slim
 
 ### engineering/ — reflexive code-level conventions
 Defensive patterns the implementer should apply without being asked.
@@ -105,6 +104,15 @@ Tactical patterns for running the agent fleet efficiently.
 
 - **split-run-implementation.md** — partition large changes to avoid token truncation
 - **compact-or-clear.md** — advise when to `/clear` vs `/compact` vs keep going, so long sessions don't bleed tokens + latency
+
+### lifecycle/ — making knowledge durable
+Skills that fire *around* the work rather than during it: capturing what was learned so it survives
+the session and improves the package. `workflow/` is what you do on a task; `lifecycle/` is what
+outlives it.
+
+- **persist-load-bearing-findings.md** — a live-incident root cause or operational gotcha gets written to CLAUDE.md/memory the same turn it's discovered, not just explained in chat
+- **retrospective.md** — capture failures so they don't repeat across projects
+- **skill-audit.md** — periodic pruning ritual to keep the package slim
 
 ### components/ — domain knowledge, via negativa first
 A different kind of artifact than the process skills above: recurring, sourced knowledge about

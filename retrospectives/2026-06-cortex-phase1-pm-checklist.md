@@ -7,6 +7,10 @@
 > **Date**: 2026-06-17
 > **Project**: Cortex (personal RAG / second-brain CLI), Phase 1 of 4 shipped
 > **Skills package version after this lesson**: 0.2.0
+>
+> **Excluded from `lifecycle/skill-audit` counting** — it carries no "Skills used this project"
+> section by design, and the Cortex usage it would report is already counted by
+> `2026-06-cortex.md`. Counting both would double-weight one project in the 3-project window.
 
 ---
 

@@ -94,7 +94,7 @@ ok "copied starter scaffold to $TARGET"
 # self-contained — works on any machine, survives being cloned elsewhere,
 # and won't silently break when central Arcanium is updated.
 mkdir -p "$TARGET/skills"
-for category in workflow engineering quality process; do
+for category in workflow engineering quality process lifecycle; do
     if [ -d "$ARC_ROOT/$category" ]; then
         cp -r "$ARC_ROOT/$category" "$TARGET/skills/"
     fi

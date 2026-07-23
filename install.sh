@@ -14,7 +14,7 @@
 #   ./install.sh --help                   Show this help
 #
 # What gets installed:
-#   - workflow/, engineering/, quality/, process/   → skill libraries
+#   - workflow/, engineering/, quality/, process/, lifecycle/  → skill libraries
 #   - README.md                                      → top-level reference
 #   - templates/                                     → only installed via --templates
 #                                                       (project-specific starting points)
@@ -36,7 +36,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG_DIR="$SCRIPT_DIR"
 
-CATEGORIES=(workflow engineering quality process)
+CATEGORIES=(workflow engineering quality process lifecycle)
 COMPONENT_CATEGORIES=(payment auth db concurrency llm-integration external-integration)
 TEMPLATE_FILES=(
   "templates/CLAUDE.md.example"

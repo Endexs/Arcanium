@@ -32,7 +32,7 @@ Exact token counts aren't visible from inside the conversation: ask the user to 
 ### Checkpoint before resetting
 `/clear` loses everything; `/compact` keeps only what the summary captures. Before either, persist anything you'd hate to re-derive:
 - **Commit** code (or state plainly what's left uncommitted).
-- Write open decisions / TODOs / the **exact next step** to the plan doc, a scratch file, or memory — so a fresh or compacted context resumes cleanly. (This pairs with `[[agent-journal]]`: the reflection you'd write *is* the checkpoint.)
+- Write open decisions / TODOs / the **exact next step** to the plan doc, a scratch file, or memory — so a fresh or compacted context resumes cleanly. (This pairs with `[[persist-load-bearing-findings]]`: anything you'd hate to re-derive goes to a file *before* the reset, because chat text does not survive `/clear`.)
 - `/compact` accepts focus hints — e.g. `/compact keep the auth decisions and the failing test` — to steer what survives.
 
 ### Prevention (so resets are rarer)
