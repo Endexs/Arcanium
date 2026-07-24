@@ -29,6 +29,76 @@ After project: <project-name>  (see retrospectives/<file>.md)
 
 ---
 
+## v0.16.0 — 2026-07-24
+Source: **user reframe.** Fusion was mis-scoped in v0.12.0 as a *sideways* move on high-stakes forks.
+Its real, primary value is the **architecture decision at project inception** — the most expensive,
+least reversible choice, which every later phase inherits. This cycle makes that the headline use and
+ships the orchestration to run it.
+
+### Added
+- `starter/.claude/bin/fusion-architect` — runs the inception architecture fusion over `omni-send`:
+  fans `FUSION_MODELS` out in parallel (true cross-vendor, which the Workflow tool cannot do — its
+  subagents are one family), strips authorship, shuffles order, merges with `MERGER`, and writes
+  `agents/planner/fusion/fusion-result.md`. Bakes in three guards as hard refusals, not advice:
+  1. **Single-family roster** → refuse (`claude/` and `cc/` canonicalised to one Anthropic family, the
+     collision a single gateway namespace makes easy).
+  2. **Unframed spec** → refuse if PM-owned §1/§2/§6/§8 are empty. Fusion amplifies its framing; fuse
+     on HOW, never WHAT. This is the load-bearing guard — a fusion over an unspecified problem returns
+     confident garbage consensus.
+  3. **<2 survivors** → refuse, rather than dress a single-model answer as fusion (the degrade-to-N−1
+     rule taken to its limit).
+  Tested live end-to-end: `claude/claude-fable-5` + `openai/gpt-5.6-sol` on a framed test spec
+  produced two genuinely divergent architectures (in-memory vs persistent index, FTS operator
+  exposure, content-endpoint security, network binding).
+
+  **Divergence handling — classify-and-recommend (the divergences ARE the value).** Surfacing
+  disagreement is the floor; the merge now *handles* it. Each divergence is CLASSIFIED by what can
+  settle it and gets a RECOMMENDED resolution — the merger resolves nothing; the human pulls each
+  trigger:
+  - **False** (same decision, different words) → collapsed into Consensus.
+  - **Spec-resolved** (violates a §6 non-negotiable) → moved to Rejected with the quote. The merger
+    is handed §6 as authority; this closes the gap the first run exposed, where non-loopback binding
+    was forwarded to the human despite §6 already forbidding it.
+  - **Empirical** (hinges on a fact) → a `feasibility-first` probe is recommended; the measurement decides.
+  - **Tiebreaker** (real engineering disagreement) → `fusion-architect --tiebreak` escalates *that one
+    decision* to a THIRD family (`deepseek/deepseek-v4-pro` by default) — the fix for N=2's missing
+    quorum; cheap (one call, not a third architecture); `model-routing`'s escalate-don't-retry applied
+    to a decision.
+  - **Values call** (genuine tradeoff) → reaches the human, framed with cost-if-wrong, reversibility,
+    and a recommended default + flip-condition (`decision-log` axes).
+
+  Guard against synthetic averaging: the merger may only choose options a proposal actually made; a
+  new third path is labelled `NEW — unvalidated`, never presented as resolved. Two coherent
+  architectures beat one blended mush.
+
+  Re-run on the same spec proved it: the flat 7-marker dump became **2 options auto-rejected against
+  §6, several false divergences collapsed into consensus, and 4 classified divergences (3 values + 1
+  empirical)** each carrying a recommended default. Tiebreak mode verified separately — DeepSeek
+  adjudicated an N=2 fork with a verdict plus the condition under which the other option wins.
+
+### Modified
+- `workflow/model-fusion` — rewrote the scope. **"Primary use: project inception (run it FIRST)"** is
+  now the headline; the per-fork use is explicitly secondary. Added the fixed inception order
+  (feasibility → PM-owned spec → architecture fusion → gate → build) and the fuse-on-HOW-never-WHAT
+  rule with its rationale.
+- `starter/CLAUDE.md` — the Multi-agent pipeline now opens with **Phase 0 — Inception** (0a
+  feasibility → 0b frame spec → 0c fusion → 0d resolve divergences into §3/§4/§5/§7), ahead of the
+  per-phase pipeline. Skill-list entry for `model-fusion` updated to lead with the inception use.
+- `WORKFLOW.md`, `README.md` — Phase 0 added to the pipeline map and the skill one-liner.
+
+### Notes
+**Why a script and not the Workflow tool.** The Workflow tool's subagents run Claude-family models
+only; genuine cross-family fusion (Fable 5 + GPT-5.6 Sol) requires calling different vendors, which
+only `omni-send` does. `fusion-architect` is the `omni-send`-level equivalent of what fusion-harness
+achieves by shelling out to clean-room children.
+
+**No new skill.** `workflow/` is already at 10 against the ~6 cap (flagged in v0.14.0). This reframe
+sharpens an existing skill and adds a *script*, not an 11th skill — the correct move under cap
+pressure, and also the honest one: the user's point is that inception IS the primary use of fusion,
+so this corrects a mis-scoping rather than adding surface.
+
+---
+
 ## v0.15.0 — 2026-07-23
 Source: **migration to the OmniRoute gateway.** No retrospective. Contract validated against the
 live gateway before anything was built on it, per `workflow/feasibility-first`.
