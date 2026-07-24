@@ -115,7 +115,7 @@ To re-sync from current Arcanium:
 
 CLAUDE.md references these via \`skills/<category>/<name>\` (relative).
 EOF
-ok "vendored skills/{workflow,engineering,quality,process}/ from Arcanium v$VERSION"
+ok "vendored skills/{workflow,engineering,quality,process,lifecycle}/ from Arcanium v$VERSION"
 
 # ---------- 1c. vendor domain components into the project ----------
 # Same frozen-at-bootstrap vendor model as skills, one directory over. install.sh
@@ -148,7 +148,7 @@ find "$TARGET" -type f \
     \( -name '*.md' -o -name '*.py' -o -name '*.toml' -o -name '*.txt' \
        -o -name '*.yaml' -o -name '*.yml' -o -name '*.cfg' -o -name '*.ini' \
        -o -name '*.gitignore' -o -name '.gitignore' -o -name 'Makefile' \
-       -o -name 'ds-send' \) \
+       -o -name 'omni-send' \) \
     -print0 | xargs -0 sed -i \
         -e "s|{{PROJECT_SLUG_UNDERSCORE}}|$SLUG_UNDERSCORE|g" \
         -e "s|{{PROJECT_SLUG}}|$SLUG|g" \

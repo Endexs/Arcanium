@@ -12,7 +12,7 @@ Plans and PM checklists. The planner runs first in every phase and produces the 
 
 1. **Phase 1**: user fills `pm-checklist.md`, agent reads it and writes `phase1-plan.md`
 2. **Phase 2+**: agent writes a smaller phase-specific PM checklist (`phaseN-pm-checklist.md`) with a Carry-forward block, user fills it, agent writes `phaseN-plan.md`
-3. Plans are read by the implementer (DeepSeek V4 Pro via `.claude/bin/ds-send`) — no human runs them
+3. Plans are read by the implementer (the T2 model via `.claude/bin/omni-send`) — no human runs them
 
 ## Model
 

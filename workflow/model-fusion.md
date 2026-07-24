@@ -33,20 +33,29 @@ PER_MODEL_OVERRIDES:      # gateway unifies the endpoint, NOT the params
   <model-id-A>: { max_tokens: 65536, temperature: 0.2 }   # thinking-mode floor still applies
 ```
 
-### OmniRoute makes this one wrapper, not N
-Because OmniRoute fronts every provider behind a single OpenAI-compatible endpoint, the per-vendor
-wrappers collapse into **one** `omni-send` (an `omni-send`-shaped clone of `.claude/bin/ds-send`:
-same interface, one `base_url` + one key). The roster is then a plain list of model-id strings the
-gateway routes. With the Workflow tool, `parallel()` the roster and pass each id straight through —
-no vendor is hardcoded anywhere in the skill.
+### A single gateway makes this one wrapper, not N
+Because the gateway fronts every provider behind one OpenAI-compatible endpoint, the per-vendor
+wrappers collapse into a single `.claude/bin/omni-send` — one `base_url`, one key, provider chosen
+by the `--model` string. The roster is then a plain list of model-id strings. With the Workflow
+tool, `parallel()` the roster and pass each id straight through; no vendor is hardcoded in the skill.
+
+Two gateway behaviours bite here specifically:
+- **Semantic auto-routes** (`auto/best-coding`, `auto/cheap`, …) are **invalid as fusion slots.** They
+  pick and silently fall back across providers, so you cannot know which family answered — which
+  makes the distinct-family guard below unenforceable. Pin concrete ids for every slot.
+- **Params are not unified even though the endpoint is.** Reasoning models reject a non-default
+  `temperature` outright; thinking models need the `max_tokens` floor. Carry both per-model in
+  `PER_MODEL_OVERRIDES`, never as one global default.
 
 ## Invariants (guards, not suggestions)
 
 ### 1. ≥2 distinct model families — enforce it
 A single gateway namespace makes family collisions frictionless: `claude-opus` + `claude-sonnet`
 *look* like two models but are one family, and fusion's entire value is cross-family disagreement.
-Guard it explicitly — OmniRoute erased the friction (separate keys/wrappers) that used to enforce
-this for free:
+Worse, a gateway often exposes the **same** family under two different prefixes (e.g. `claude/*` and
+`cc/*` for the same Anthropic models), so a roster can read as two vendors while being one. Guard it
+explicitly — the gateway erased the friction (separate keys and wrappers) that used to enforce this
+for free:
 
 ```
 if distinct_families(FUSION_MODELS) < 2:

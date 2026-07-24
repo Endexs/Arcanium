@@ -29,6 +29,69 @@ After project: <project-name>  (see retrospectives/<file>.md)
 
 ---
 
+## v0.15.0 — 2026-07-23
+Source: **migration to the OmniRoute gateway.** No retrospective. Contract validated against the
+live gateway before anything was built on it, per `workflow/feasibility-first`.
+
+The single-gateway design assumed since v0.12.0 is now real: one endpoint, one wrapper, provider
+chosen by a model-id string. Three vendor-specific behaviours only surfaced by actually calling it.
+
+### Added
+- `starter/.claude/bin/omni-send` — one wrapper for every provider. `--model` is **required with no
+  default**, by design: the tier is the caller's routing decision (`workflow/model-routing`), not the
+  script's. `OMNIROUTE_BASE_URL` defaults to `http://localhost:20128/v1`; `OMNIROUTE_API_KEY` is
+  optional and sent as Bearer only when set. Same interface and exit codes as the `ds-send` it
+  replaces, so callers need no changes beyond the name and `--model`.
+
+### Deleted
+- `starter/.claude/bin/ds-send` — superseded. One gateway makes a per-vendor wrapper redundant.
+
+### Modified
+- `starter/CLAUDE.md` — the **Model roster** now carries real, verified model ids instead of
+  placeholders, all confirmed present in the live catalog and each one actually called:
+  `MODEL_TIERS` T1 `claude/claude-haiku-4-5-20251001` · T2 `deepseek/deepseek-v4-pro` ·
+  T3 `claude/claude-opus-4-8`. `FUSION_MODELS` runs at N=2 across two distinct families —
+  `claude/claude-fable-5` (Anthropic) + `openai/gpt-5.6-sol` (OpenAI), with Fable 5 as `MERGER`.
+  At N=2 there is no quorum: on disagreement the merger surfaces the split rather than picking a
+  winner. Noted in place that `MERGER` shares a family with slot A — permitted, with the
+  authorship-blind rule as the mitigation — and that a third family restores majority consensus.
+- `bin/arcanium-new` — placeholder-substitution list follows the rename; also fixed a stale success
+  message still naming four skill categories after v0.13.0 added `lifecycle`.
+- `workflow/model-fusion`, `README.md`, `starter/agents/planner/README.md` — repointed to `omni-send`.
+
+### Three gateway behaviours that cost real debugging — all now encoded
+1. **It streams by default.** Even with `stream` omitted, the gateway returns SSE `data: {...}`
+   chunks rather than one JSON object, which silently breaks the
+   `jq -r '.choices[0].message.content'` contract every caller in this package relies on.
+   `omni-send` sets `"stream": false` explicitly.
+2. **`temperature` is not universal.** Reasoning models reject *any* non-default value
+   (`does not support 0.2 ... only the default (1) value is supported`) — so the inherited `0.2`
+   default broke a whole model class. `omni-send` now omits temperature unless explicitly passed;
+   policy moved to per-model `PER_MODEL_OVERRIDES`. This is the concrete instance of the rule
+   `model-routing` predicted in the abstract: *the gateway unifies the endpoint, not the params.*
+3. **`auto/*` routes conflict with escalate-never-silently-downgrade.** The gateway's semantic routes
+   auto-fall-back across provider tiers, meaning a frontier model can quietly become a free-tier one
+   mid-pipeline — exactly the silent downgrade `model-routing` forbids — and you cannot satisfy the
+   distinct-family guard when you don't know which family answered. Documented: `auto/*` is
+   acceptable for T1/T2 work a gate will verify; **pin concrete ids for T3, the reviewer, and every
+   fusion slot.**
+
+### Notes
+**A latent bug inherited from `ds-send`, now fixed.** Both scripts captured the HTTP status with
+`curl -w "%{http_code}" -o >(cat)` and split the last three characters off the combined output.
+Process substitution writes asynchronously, so on any response large enough to flush in more than one
+chunk the code and body interleave — producing `HTTP 2"}` and a corrupted body. It passed on short
+replies and failed on real ones, which is why it survived in `ds-send`. `omni-send` writes the body
+to a temp file and reads the code from stdout. Anyone still running `ds-send` from a previously
+bootstrapped project has this bug.
+
+**The family trap is worse behind a gateway, concretely.** This catalog exposes the same Anthropic
+models under both `claude/*` and `cc/*`. A roster of `claude/claude-opus-4-8` + `cc/claude-sonnet-5`
+reads as two vendors and is one family — fusion would return false consensus. Recorded in
+`model-fusion` with this exact example.
+
+---
+
 ## v0.14.0 — 2026-07-23
 Source: **user request**, enabled by the single-gateway (OmniRoute) setup. No retrospective.
 

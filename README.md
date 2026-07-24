@@ -27,7 +27,7 @@ What you get at `/home/developer/projects/hello-rag/`:
 - `agents/planner/plan-template.md` with `implementer-handoff` blocks ready to fill
 - `agents/reviewer/review-template.md` with the Critical/Major/Minor structure
 - `.claude/agents/fixer.md` (Haiku subagent for applying review findings)
-- `.claude/bin/ds-send` (direct DeepSeek wrapper, no Python venv dep)
+- `.claude/bin/omni-send` (single-gateway wrapper — every provider via OmniRoute, no Python venv dep)
 - `components/{payment,auth,db,concurrency,llm-integration,external-integration}/` (via-negativa domain knowledge — read a domain's
   `ANTIPATTERNS.md` before implementing in it; see `engineering/component-library.md`)
 - `tests/conftest.py`, `pyproject.toml`, `.gitignore`, `src/<package>/__init__.py`
