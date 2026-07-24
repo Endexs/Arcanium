@@ -57,6 +57,39 @@ If you already have a project and want to retrofit the skills into it:
 
 The installer is idempotent — re-running skips existing files unless you pass `--force`.
 
+### Using with Pi
+
+This package was built for Claude Code, but two of its three layers carry over to
+[Pi](https://pi.dev) directly, and the third converts with one command:
+
+- **Context files** — `templates/CLAUDE.md.example` works unmodified. Pi loads `CLAUDE.md`/`AGENTS.md`
+  natively from cwd, parent directories, and `~/.pi/agent/AGENTS.md` (global), same as Claude Code.
+  No conversion needed; just `cp templates/CLAUDE.md.example <project>/CLAUDE.md` (or use
+  `install.sh --templates`).
+- **Skills** — Pi's skill loader requires YAML frontmatter (`name` + `description`) per the
+  [Agent Skills standard](https://agentskills.io/specification); this package's `workflow/`,
+  `engineering/`, `quality/`, `process/`, `lifecycle/` files are plain prose without it, so Pi can't
+  discover them as-is. Convert + install with:
+  ```bash
+  ./install.sh --pi                       # global: ~/.pi/agent/skills/<category>/<name>/SKILL.md
+  ./install.sh --pi-local /path/to/project  # project-local: <project>/.pi/skills/...
+  ./install.sh --pi --dry-run             # preview without writing
+  ```
+  This runs `bin/convert-skills-to-pi.py`, which copies each skill's body verbatim into its own
+  `<name>/SKILL.md` and derives `description` from the file's `## Rule` section. Restart `pi` (or
+  run `/reload`) afterward. If you also use Claude Code, point Pi at your existing `~/.claude/skills`
+  instead of duplicating (see Pi's `docs/skills.md`, "Using Skills from Other Harnesses") — just be
+  aware the two won't be byte-identical unless you regenerate.
+- **Agent pipeline (planner → implementer → reviewer → fixer)** — Pi has no built-in sub-agents by
+  design. Since this package's pipeline already hands off through files on disk rather than chat
+  (see `WORKFLOW.md`), it maps onto separate `pi -p` invocations per role instead of Claude Code
+  subagents: e.g. `pi --model <planner-model> -p "Read spec/spec.md, write agents/planner/phase1-plan.md"`,
+  then a fresh `pi --model <implementer-model> -p "Implement agents/planner/phase1-plan.md"`, etc.
+  `.claude/agents/fixer.md` becomes a prompt template (`--append-system-prompt` or `.pi/prompts/`)
+  rather than a Claude Code subagent definition.
+- **MCP** — not required by this package; skip it. Pi has no MCP client by design (see Pi's README
+  "Philosophy" section) but skills/extensions can add one if a project needs it.
+
 ### Manual install
 
 For a global skills library referenced by all your projects:
