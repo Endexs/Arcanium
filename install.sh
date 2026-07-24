@@ -9,6 +9,9 @@
 #   ./install.sh --templates <project>    Copy templates into project root
 #   ./install.sh --components <project>   Copy domain components into <project>/components/
 #   ./install.sh --all <project>          --local AND --templates AND --components into project
+#   ./install.sh --pi [dest]              Convert + install as native Pi skills
+#                                          (default dest: ~/.pi/agent/skills — global)
+#   ./install.sh --pi-local <project-dir> Convert + install into <project-dir>/.pi/skills/
 #   ./install.sh --dry-run [other flags]  Print actions without doing them
 #   ./install.sh --force                  Overwrite existing files without prompt
 #   ./install.sh --help                   Show this help
@@ -84,6 +87,15 @@ while [ $# -gt 0 ]; do
     --templates)    INSTALL_TEMPLATES=1; DEST="${2:-}"; shift 2; MODE=templates_only ;;
     --components)   INSTALL_COMPONENTS=1; DEST="${2:-}"; shift 2; MODE=components_only ;;
     --all)          MODE=local; INSTALL_TEMPLATES=1; INSTALL_COMPONENTS=1; DEST="${2:-}"; shift 2 ;;
+    --pi)
+      MODE=pi
+      if [ $# -gt 1 ] && [[ "${2:-}" != -* ]]; then DEST="$2"; shift 2; else shift 1; fi
+      ;;
+    --pi-local)
+      MODE=pi_local
+      if [ -z "${2:-}" ]; then err "--pi-local requires a project directory argument"; exit 1; fi
+      DEST="$2"; shift 2
+      ;;
     *)              err "Unknown argument: $1"; echo "Run with --help for usage."; exit 1 ;;
   esac
 done
@@ -96,6 +108,46 @@ for cat in "${CATEGORIES[@]}"; do
     exit 3
   fi
 done
+
+# ── Pi mode: convert flat skill .md files into native Pi SKILL.md packages ────
+# (Pi requires YAML frontmatter with a `name`/`description` to discover a skill
+# at all — see bin/convert-skills-to-pi.py for why a straight file copy won't do.)
+if [ "$MODE" = "pi" ] || [ "$MODE" = "pi_local" ]; then
+  if ! command -v python3 >/dev/null 2>&1; then
+    err "python3 is required for --pi / --pi-local"
+    exit 3
+  fi
+
+  if [ "$MODE" = "pi_local" ]; then
+    DEST="${DEST/#\~/$HOME}"
+    PI_SKILLS_DEST="${DEST}/.pi/skills"
+  else
+    PI_SKILLS_DEST="${DEST:-${HOME}/.pi/agent/skills}"
+    PI_SKILLS_DEST="${PI_SKILLS_DEST/#\~/$HOME}"
+  fi
+
+  info "${BOLD}Solo Dev Agent Skills Package — Pi installer${RESET}"
+  echo
+  dim "Source:      $PKG_DIR"
+  dim "Pi skills:   $PI_SKILLS_DEST"
+  dim "Dry run:     $([ "$DRY_RUN" -eq 1 ] && echo yes || echo no)"
+  echo
+
+  PI_ARGS=(--dest "$PI_SKILLS_DEST")
+  [ "$DRY_RUN" -eq 1 ] && PI_ARGS+=(--dry-run)
+  python3 "$PKG_DIR/bin/convert-skills-to-pi.py" "${PI_ARGS[@]}"
+
+  echo
+  if [ "$DRY_RUN" -eq 0 ]; then
+    ok "Pi skills installed to $PI_SKILLS_DEST"
+    if [ "$MODE" = "pi" ]; then
+      echo "Restart pi (or run /reload in an interactive session) to pick them up."
+    else
+      echo "Project-local — pi will load them after this project is trusted (see pi's Project Trust docs)."
+    fi
+  fi
+  exit 0
+fi
 
 # ── resolve destinations ─────────────────────────────────────────────────────
 case "$MODE" in

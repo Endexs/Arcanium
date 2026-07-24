@@ -94,32 +94,57 @@ per task from complexity and verifiability, and may only route *up* from here.
 
 The **only** place models are named. Serves `skills/workflow/model-routing` (tiers) and
 `skills/workflow/model-fusion` (roster). Update when the frontier moves; the skills themselves name
-roles, never vendors. All ids route through one gateway (OmniRoute) via a single
-`.claude/bin/omni-send` wrapper — no per-vendor wrapper needed.
+roles, never vendors. Every id routes through one gateway (OmniRoute) via `.claude/bin/omni-send` —
+no per-vendor wrapper. List what's actually available with:
+
+```bash
+curl -s http://localhost:20128/v1/models | jq -r '.data[].id' | sort
+```
 
 ```
 MODEL_TIERS:              # routing ladder — see skills/workflow/model-routing
-  T1: <model-id>          # cheap/fast — mechanical, fully specified, verifiable work
-  T2: <model-id>          # mid — normal work against a clear plan
-  T3: <model-id>          # frontier — reasoning, ambiguity, judgment, critical paths
+  T1: claude/claude-haiku-4-5-20251001    # cheap/fast — mechanical, specified, verifiable
+  T2: deepseek/deepseek-v4-pro            # mid — normal work against a clear plan
+  T3: claude/claude-opus-4-8              # frontier — reasoning, ambiguity, critical paths
 
-FUSION_MODELS:            # 2 or 3 slots, each a model-id string the gateway routes
-  - <model-id-A>          # frontier reasoning model
-  - <model-id-B>          # MUST be a different family than A
-  - <model-id-C>          # optional 3rd, different family again
-MERGER: <model-id>        # strongest reasoner; sees candidates with authorship stripped
+FUSION_MODELS:            # 2-3 slots, each a DIFFERENT family (see the family rule below)
+  - claude/claude-fable-5                 # Anthropic
+  - openai/gpt-5.6-sol                    # OpenAI
+MERGER: claude/claude-fable-5             # sees candidates with authorship stripped
 
 PER_MODEL_OVERRIDES:      # the gateway unifies the endpoint, NOT the params
-  <model-id>: { max_tokens: 65536, temperature: 0.2 }   # thinking floor below still applies
+  claude/claude-fable-5:    { max_tokens: 65536, temperature: 0.2 }
+  claude/claude-opus-4-8:   { max_tokens: 65536, temperature: 0.2 }
+  deepseek/deepseek-v4-pro: { max_tokens: 65536, temperature: 0.2 }
+  openai/gpt-5.6-sol:       { max_tokens: 65536 }   # reasoning model: NO temperature (rejects it)
 ```
 
-`max-tokens` floor of 65536 for any thinking-mode model. Thinking burns ~24K silently before
+**This roster runs at N=2**, so there is no quorum and no tiebreak — you get agree/disagree only.
+When the two disagree, the merger **surfaces the disagreement to you**; it does not pick a winner.
+Add a third family (e.g. `deepseek/deepseek-v4-pro`) if you want majority consensus instead.
+
+`MERGER` shares a family with the first slot. That is permitted — the authorship-blind rule is the
+mitigation — but if you want zero family affinity in the merge, point `MERGER` at a third family.
+
+**`max_tokens` floor of 65536** for any thinking-mode model. Thinking burns ~24K silently before
 content; smaller budgets truncate mid-file — which reads as a *model* failure but is a *config* one.
 
+**Temperature is not universal.** Reasoning models reject any non-default value outright
+(`does not support 0.2 ... only the default (1) value is supported`). `omni-send` therefore omits
+temperature unless you pass it — set it per-model here, never globally.
+
 **A tier is not a family.** T1/T2/T3 may all resolve to one vendor's line — fine for routing, but
-**not** valid for fusion or for the reviewer's different-family rule. Two models from the same family
-is not a valid `FUSION_MODELS` roster: fusion's value is cross-family disagreement, and a single
-gateway namespace makes that collision easy to miss.
+**not** valid for fusion or for the reviewer's different-family rule. The gateway makes this trap
+easy to fall into: `claude/*` and `cc/*` expose the *same* Anthropic models under two prefixes, so a
+roster of `claude/claude-opus-4-8` + `cc/claude-sonnet-5` looks like two vendors and is one family.
+
+**Prefer pinned ids over `auto/*` for anything critical.** OmniRoute's `auto/*` routes
+(`auto/best-coding`, `auto/cheap`, …) pick a model for you and auto-fall-back across provider tiers.
+That is convenient for T1/T2 work a gate will verify, but it directly conflicts with
+`model-routing`'s **escalate-never-silently-downgrade** rule: a fallback from a frontier model to a
+free-tier one is exactly the silent downgrade the skill forbids, and you cannot satisfy the
+distinct-family guard when you don't know which family answered. Pin concrete ids for T3, for the
+reviewer, and for every `FUSION_MODELS` slot.
 
 If a tier or provider is unavailable (429/5xx), **escalate — never silently downgrade.** Fusion
 continues at N−1 and says so in its provenance block; it never returns one model's answer as
@@ -144,7 +169,7 @@ pytest -x -q
 ├── agents/planner/           ← PM checklists + per-phase plans
 ├── agents/reviewer/          ← adversarial review outputs
 ├── .claude/agents/fixer.md   ← Haiku subagent for applying review findings
-├── .claude/bin/ds-send       ← direct DeepSeek API wrapper
+├── .claude/bin/omni-send     ← OmniRoute gateway wrapper (all providers)
 ├── components/               ← via-negativa domain knowledge (payment/auth/db/concurrency/
 │                                llm-integration/external-integration); read ANTIPATTERNS.md
 │                                before PATTERNS.md, see skills/engineering/component-library.md
