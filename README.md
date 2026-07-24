@@ -109,7 +109,7 @@ Skills that shape how you and the agent collaborate. Apply these regardless of w
 - **rigor-triage.md** — at the start of a task, pick full-pipeline vs standard vs one-shot vibe-code by criticality (blast radius × reversibility), not by size
 - **model-routing.md** — then pick the model tier by complexity and verifiability: complexity sets the floor, criticality only raises it, and you may route down only when a gate or test will catch the failure
 - **gate-first-validation.md** — on Full-tier work, author an executable acceptance gate *before* implementing, prove it red, freeze it, then loop build→gate until green or a bounded halt
-- **model-fusion.md** — on a high-stakes fork, N models (2–3, distinct families) solve the same problem in parallel and a blind merger reconciles them with consensus/divergence provenance
+- **model-fusion.md** — run FIRST on the architecture (Phase 0) via `.claude/bin/fusion-architect`: N models (2–3, distinct families) design independently and a blind merger reconciles them with consensus/divergence/`HUMAN DECISION NEEDED` provenance; also used on later high-stakes forks
 - **spec-coach.md** — Socratic loop that auto-invokes on empty PM-owned spec sections; helps user fill blanks well without inventing
 - **pm-checklist.md** — when a spec has 5+ PM-owned decisions, produce a checklist file instead of asking inline
 - **decision-log.md** — agent surfaces decisions with confidence + reversibility, and names the specific risky lines

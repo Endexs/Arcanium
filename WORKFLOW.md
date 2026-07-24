@@ -57,6 +57,14 @@ Created by `arcanium-new <name>`, which vendors `./skills/`, `spec/spec.md`, `ag
 implementer reads `phaseN-plan.md`, not the conversation. Artifacts are the interface.
 
 ```
+PHASE 0 — INCEPTION (once, at project start — the most critical decision)
+   feasibility probe (if external dep) → frame PM-owned spec §1/§2/§6/§8 (WHAT)
+   → ARCHITECTURE FUSION: 2 distinct families design independently, blind merger
+     reconciles → agents/planner/fusion/fusion-result.md (consensus/divergence/
+     HUMAN DECISION NEEDED) → you resolve divergences → spec §3/§4/§5/§7 (HOW)
+   run:  .claude/bin/fusion-architect --spec spec/spec.md
+   ── fuse on HOW, never WHAT; the script refuses an unframed spec ──
+        ↓
 0. TRIAGE       you + agent     rigor-triage  → Vibe | Standard | Full   (how much process?)
                                 model-routing → T1 | T2 | T3            (which model?)
                                 Full ⇒ every step below is mandatory

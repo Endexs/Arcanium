@@ -1,12 +1,28 @@
 # Skill: Model Fusion
 
 ## Rule
-On a **high-stakes fork** — an architecture decision, or any path in `[[non-negotiable-paths]]` —
-have **N independent models (N ∈ {2,3})** attempt the *same* problem in parallel, then a separate
+Have **N independent models (N ∈ {2,3})** attempt the *same* problem in parallel, then a separate
 **merger** role reconciles their outputs into one result with explicit **provenance**: what they
 agreed on (consensus), what only one saw (divergence, preserved not discarded), and what was rejected.
 "AND, not OR" — combine the models' cognitive strengths instead of picking one. Because it costs
-2–3× a single run, fusion is **budgeted to forks that are expensive to get wrong**, not a default.
+2–3× a single run, fusion is **budgeted to decisions that are expensive to get wrong**, not a default.
+
+## Primary use: project inception (run it FIRST)
+The highest-leverage place to spend fusion is the **architecture, at the very start of a project** —
+the single most expensive, least reversible decision, which every later phase inherits. Run it once,
+up front, via `.claude/bin/fusion-architect`; the merged result becomes spec §3/§4/§5/§7. This is
+the headline use, not a niche one — see the Multi-agent pipeline's **Phase 0** in the project
+`CLAUDE.md`.
+
+**Fusion amplifies its framing — fuse on HOW, never on WHAT.** The PM-owned spec (§1 what, §2
+stories, §6 non-negotiables, §8 success) must be filled *first* (`[[spec-coach]]`). Fuse two models
+on *"what should this be?"* and they diverge on the problem itself, producing confident garbage
+consensus. `fusion-architect` refuses to run against an unframed spec for exactly this reason. The
+order is fixed: `[[feasibility-first]]` probe → PM-owned spec → **architecture fusion** →
+`[[gate-first-validation]]` for Phase 1 → build.
+
+The **secondary use** is any later high-stakes fork — a `[[non-negotiable-paths]]` decision mid-project
+— run the same way, sideways to phase planning.
 
 ## Why this exists
 Adapted from the `/fusion` and `/opinion` patterns in the fusion-harness project (external idea,
@@ -83,6 +99,37 @@ answer presented as consensus.
 - **`/fusion` (full, with merge):** N models solve with full tools; the merger reconciles into one
   result plus a provenance block. Use when you want a *single* answer to act on.
 
+### Handling the divergences — classify, then route (the divergences ARE the value)
+Surfacing disagreement is the floor, not the handling. Two models were run precisely so they would
+*not* agree; a flat list of "human decide" forwards that signal instead of using it. Every divergence
+gets **classified by what can settle it**, and only genuine values-forks reach you:
+
+| Type | Settled by | Reaches you? |
+|---|---|---|
+| **False** — same decision, different words / one a superset | collapse into consensus | no |
+| **Spec-resolved** — one option violates a §6 non-negotiable | the spec (`[[non-negotiable-paths]]`) → moves to Rejected | no |
+| **Empirical** — hinges on a measurable fact | a `[[feasibility-first]]` probe — the measurement decides | no |
+| **Tiebreaker** — real engineering disagreement, a likely-better answer | a **third family adjudicates that one decision** (`fusion-architect --tiebreak`) | rarely |
+| **Values call** — genuine tradeoff, no right answer | **you** — framed with cost-if-wrong + reversibility + a recommended default | yes |
+
+Two things make this more than a taxonomy:
+- **The tiebreaker is the fix for N=2's missing quorum.** Two models give agree/disagree with no
+  tiebreak, so without this every fork bounces to you. Escalating *one contested decision* to a third
+  family — not a whole third architecture — is cheap, and is `[[model-routing]]`'s escalate-don't-retry
+  applied to a decision. It converts N=2 to N=3 for that decision alone.
+- **When a fork does reach you, it's framed for a 30-second call** via `[[decision-log]]`'s axes
+  (cost if wrong, reversibility, recommended default) — not a wall of prose to adjudicate cold.
+
+**Guard against synthetic averaging.** The merger's worst failure is "resolving" a divergence by
+inventing a compromise neither model proposed — design-by-committee, an incoherent blend worse than
+either coherent position. Rule: the merger may only choose from options actually proposed; a genuinely
+new third path is labelled *NEW — unvalidated* and treated as a values call, never presented as resolved.
+Two coherent architectures beat one mushy one.
+
+This is `classify-and-recommend`, not auto-route: the merger sorts and recommends, **you pull each
+trigger** (run the probe, run `--tiebreak`, make the call). Nothing auto-escalates a decision to a
+model you didn't choose — deliberate, because this is the highest-stakes decision in the project.
+
 ### Merge output — always carries provenance
 ```markdown
 ## Fusion result: <one-line>
@@ -96,10 +143,17 @@ With **N=3** the merge is a **quorum**: majority = consensus, the minority take 
 flagged for the human* (not deleted), and a genuine tiebreak exists. With N=2 you get only
 agree/disagree — surface the disagreement to the human rather than having the merger pick a winner.
 
-### Realized with the Workflow tool
-`parallel()` the `FUSION_MODELS` (each an `agent()` with the roster's model id + its
-`PER_MODEL_OVERRIDES`), then one merge `agent()` with a structured schema for the provenance block.
-Feed a confirmed fusion decision into the plan; if the fork is also a build, its acceptance is a
+### How it's realized
+For the **inception architecture fusion**, use `.claude/bin/fusion-architect <spec>` — it fans the
+`FUSION_MODELS` out over `omni-send` (true cross-vendor, which the Workflow tool cannot do — its
+subagents are one family), strips authorship, shuffles order, merges with the `MERGER`, and writes
+`agents/planner/fusion/fusion-result.md`. It bakes in the three guards below and refuses to present
+a single-model answer as fusion.
+
+For a **same-session fork** where all candidates can be one family, the Workflow tool also works:
+`parallel()` the roster (each an `agent()` with a model id), then one merge `agent()` with a
+structured schema. Cross-vendor still needs `fusion-architect`/`omni-send`. Either way: feed the
+confirmed decision into the plan; if the fork is also a build, its acceptance is a
 `[[gate-first-validation]]` gate.
 
 ## What this prevents

@@ -32,7 +32,7 @@ Skills are vendored into `./skills/` at bootstrap time — fully self-contained,
 - `skills/quality/adversarial-review` — separate agent hunts for bugs (Critical / Major / Minor)
 - `skills/quality/security-review` — for any project with a public attack surface + money/auth/PII: a dedicated threat-model pass (authz/IDOR, cookie/CSRF hardening, injection, secret leakage), distinct from adversarial-review and a hard gate before go-live. Run `/security-review` or a per-domain agent fan-out
 - `skills/workflow/gate-first-validation` — Full-tier work only: author an executable acceptance gate BEFORE implementing, prove it fails red, freeze it (the builder may never edit it), then loop build→gate until green or halt after N=3. Runs before adversarial-review, not instead of it
-- `skills/workflow/model-fusion` — high-stakes forks only (architecture, non-negotiable paths): 2–3 models from **distinct families** solve the same problem in parallel; an authorship-blind merger reconciles with consensus/divergence provenance. Costs 2–3×, so budget it to forks that are expensive to get wrong. Roster lives in the Model roster block below
+- `skills/workflow/model-fusion` — **primary use: run FIRST, on the architecture** (Phase 0 above), via `.claude/bin/fusion-architect` — 2–3 models from **distinct families** design independently, an authorship-blind merger reconciles with consensus/divergence/`HUMAN DECISION NEEDED` provenance. Also used sideways on later high-stakes forks. Costs 2–3×; fuse on HOW, never WHAT (frame the spec first). Roster in the Model roster block below
 - `skills/engineering/disable-flag-both-paths` — any disable/enable mechanism (feature flag, TTL=0, `--dry-run`) applies to every path it affects, not just the obvious one
 - `skills/engineering/boring-tech` — default to widely-used, well-documented, easy-to-swap tools; justify any non-default choice in the decision log
 - `skills/workflow/feasibility-first` — before committing to a new external dependency the project's value hinges on, run the cheapest probe to confirm it's usable before building around it
@@ -77,6 +77,25 @@ When working on or reviewing `spec/spec.md`, treat empty sections as **gaps to f
 ---
 
 ## Multi-agent pipeline
+
+### Phase 0 — Inception (runs ONCE, at project start, before any per-phase work)
+
+The architecture is the most expensive, least reversible decision in the project. Do not let one
+model frame it. Order is fixed — each step feeds the next:
+
+| Step | Who | Artifact |
+|------|------|------|
+| 0a. Feasibility probe (only if a load-bearing external dep exists) | you + agent | proof the capability exists — `skills/workflow/feasibility-first` |
+| 0b. Frame the problem — PM-owned spec §1/§2/§6/§8 | you (spec-coach) | `spec/spec.md` (the WHAT) |
+| 0c. **Architecture fusion** — 2 distinct families design independently, blind merger reconciles | `FUSION_MODELS` → `MERGER` | `agents/planner/fusion/fusion-result.md` |
+| 0d. Resolve every `>>> HUMAN DECISION NEEDED <<<`, fold synthesis into spec §3/§4/§5/§7 | you | `spec/spec.md` (the HOW) |
+
+Run 0c with: `.claude/bin/fusion-architect --spec spec/spec.md`. It **refuses** to run against an
+unframed spec (0b must be done first — fusion amplifies its framing) or a single-family roster, and
+never presents a single-model answer as fusion. See `skills/workflow/model-fusion`
+("Primary use: project inception"). Then Phase 1 begins with its gate (below).
+
+### Per-phase pipeline (repeats for each phase in §7)
 
 | Phase | Tier (floor) | Artifact |
 |------|------|------|

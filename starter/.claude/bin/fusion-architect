@@ -1,0 +1,283 @@
+#!/usr/bin/env bash
+# fusion-architect — run the project-inception architecture fusion.
+#
+# Two+ models from DISTINCT families independently design the architecture for a
+# framed spec; a blind merger reconciles them into one result carrying provenance
+# (consensus / divergence / rejected). This is the FIRST, most critical step of a
+# project — the architecture decision every later phase inherits. See
+# skills/workflow/model-fusion ("Primary use: project inception").
+#
+# Fusion amplifies its framing. Fuse on HOW (architecture), never on WHAT — the
+# PM-owned spec (§1 what, §2 stories, §6 non-negotiables, §8 success) must be
+# filled first, or the models diverge on what you're even building. This script
+# refuses to run against an unframed spec.
+#
+# Usage:
+#   # Fusion (default mode) — design + classify divergences:
+#   fusion-architect [--spec spec/spec.md] [--out agents/planner/fusion] \
+#                    [--models "id1,id2[,id3]"] [--merger id]
+#
+#   # Tiebreak mode — adjudicate ONE divergence with a third family (you trigger it,
+#   # once the fusion result recommends it for a TIEBREAKER-type divergence):
+#   fusion-architect --tiebreak [--tiebreaker id] < decision.txt
+#
+# Divergences are the value. The merge CLASSIFIES each one (spec-resolved / empirical /
+# tiebreaker / values-call) and RECOMMENDS a resolution — but resolves nothing itself.
+# You pull each trigger: run the probe, run --tiebreak, or make the values call.
+#
+# Defaults (override via flags or the FUSION_MODELS / MERGER / TIEBREAKER env vars):
+#   --spec       spec/spec.md
+#   --out        agents/planner/fusion
+#   --models     claude/claude-fable-5,openai/gpt-5.6-sol
+#   --merger     claude/claude-fable-5
+#   --tiebreaker deepseek/deepseek-v4-pro   (a THIRD family, distinct from the two that disagreed)
+#
+# Requires: omni-send (same dir), curl, jq. Reads OMNIROUTE_* from the environment.
+#
+# Exit codes:
+#   0  fusion-result.md written
+#   1  user-actionable (unframed spec, single-family roster, <2 models survived)
+#   2  setup error (omni-send not found)
+
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OMNI="$HERE/omni-send"
+[[ -x "$OMNI" ]] || { echo "fusion-architect: omni-send not found next to this script" >&2; exit 2; }
+
+SPEC="spec/spec.md"
+OUT="agents/planner/fusion"
+MODELS_CSV="${FUSION_MODELS:-claude/claude-fable-5,openai/gpt-5.6-sol}"
+MERGER="${MERGER:-claude/claude-fable-5}"
+TIEBREAKER="${TIEBREAKER:-deepseek/deepseek-v4-pro}"
+MODE=fusion
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --spec)       SPEC="$2"; shift 2 ;;
+    --out)        OUT="$2"; shift 2 ;;
+    --models)     MODELS_CSV="$2"; shift 2 ;;
+    --merger)     MERGER="$2"; shift 2 ;;
+    --tiebreak)   MODE=tiebreak; shift ;;
+    --tiebreaker) TIEBREAKER="$2"; shift 2 ;;
+    --help|-h)    sed -n '2,36p' "$0" | sed 's/^# \?//'; exit 0 ;;
+    *)            echo "fusion-architect: unknown arg $1" >&2; exit 1 ;;
+  esac
+done
+
+# --- tiebreak mode: adjudicate ONE divergence with a third family --------
+# Reads the decision + both positions from stdin. This is the human-triggered
+# resolution for a TIEBREAKER-classified divergence — cheap (one call), and the
+# third family is distinct from the two that disagreed, so it breaks the N=2 tie.
+if [[ "$MODE" == tiebreak ]]; then
+  DECISION="$(cat -)"
+  [[ -n "${DECISION//[[:space:]]/}" ]] || {
+    echo "fusion-architect --tiebreak: pipe the decision + both positions on stdin" >&2; exit 1; }
+  TB_PROMPT="You are a third independent engineer adjudicating ONE architecture decision that two
+other engineers disagree on. You did not write either position. In 3-6 sentences: pick the stronger
+option and say why; then name the single condition under which the OTHER option wins. If this is
+genuinely a values tradeoff with no technically-correct answer, say that plainly instead of forcing a
+pick — a false verdict is worse than an honest 'this one is yours'.
+
+THE DECISION AND THE TWO POSITIONS:
+$DECISION"
+  echo "fusion-architect: adjudicating with $TIEBREAKER (third family)..." >&2
+  "$OMNI" --model "$TIEBREAKER" --max-tokens 65536 --from-stdin <<<"$TB_PROMPT" \
+    | jq -r '.choices[0].message.content'
+  exit 0
+fi
+
+[[ -f "$SPEC" ]] || { echo "fusion-architect: spec not found: $SPEC" >&2; exit 1; }
+IFS=',' read -r -a MODELS <<< "$MODELS_CSV"
+[[ "${#MODELS[@]}" -ge 2 ]] || { echo "fusion-architect: need >=2 models (got ${#MODELS[@]})" >&2; exit 1; }
+
+# --- guard 1: distinct families ------------------------------------------
+# Cheap check: the gateway prefix. `claude/` and `cc/` are the SAME Anthropic
+# family under two prefixes — treat them as one. This can't catch every alias,
+# but it catches the common collision a single namespace makes easy.
+canon_family() {
+  local p="${1%%/*}"
+  case "$p" in
+    cc|claude) echo "anthropic" ;;
+    ds|deepseek) echo "deepseek" ;;
+    *) echo "$p" ;;
+  esac
+}
+declare -A SEEN_FAM=()
+for m in "${MODELS[@]}"; do SEEN_FAM["$(canon_family "$m")"]=1; done
+if [[ "${#SEEN_FAM[@]}" -lt 2 ]]; then
+  echo "fusion-architect: roster is single-family ($MODELS_CSV) — no genuine diversity." >&2
+  echo "fusion-architect: fusion's value IS cross-family disagreement; add another vendor." >&2
+  exit 1
+fi
+
+# --- guard 2: spec is framed (HOW needs a WHAT) --------------------------
+section_body() { awk -v s="$1" '
+  $0 ~ "^## §"s" " {f=1; next} /^## §/ {f=0} f {print}' "$SPEC"; }
+unframed=()
+for s in 1 2 6 8; do
+  body="$(section_body "$s" | grep -vE '^\s*$|^>|\[GAP|\[DRAFT|placeholder|Replace this|<.*>' || true)"
+  [[ -z "$(echo "$body" | tr -d '[:space:]')" ]] && unframed+=("§$s")
+done
+if [[ "${#unframed[@]}" -gt 0 ]]; then
+  echo "fusion-architect: spec is not framed — empty PM-owned sections: ${unframed[*]}" >&2
+  echo "fusion-architect: fill §1/§2/§6/§8 first (spec-coach). Fusing on an unframed spec" >&2
+  echo "fusion-architect: produces confident garbage. Refusing to run." >&2
+  exit 1
+fi
+
+mkdir -p "$OUT"
+SPEC_TEXT="$(cat "$SPEC")"
+
+ARCHITECT_PROMPT="You are a senior architect. Given the specification below, design the system.
+Produce a concrete, opinionated proposal with these sections and nothing else:
+  ## Architecture (§3)  — components, boundaries, data flow, the key structural decision and why
+  ## Data model (§4)    — entities, relationships, storage choice + justification
+  ## Interface (§5)     — external surface (API/CLI/UI), the main contracts
+  ## Phase plan (§7)    — 3-6 phases, each shippable, dependency-ordered, smallest-value-first
+  ## Load-bearing risks — the 2-3 decisions most expensive to get wrong, and your call on each
+Be decisive. State assumptions explicitly. Do not restate the spec.
+
+SPECIFICATION:
+$SPEC_TEXT"
+
+# --- fan out: each model designs independently ---------------------------
+echo "fusion-architect: dispatching ${#MODELS[@]} architects..." >&2
+declare -a PIDS=() CFILES=()
+i=0
+for m in "${MODELS[@]}"; do
+  i=$((i+1))
+  cf="$OUT/candidate-$i.md"
+  CFILES+=("$cf")
+  # NOTE: no temperature — reasoning models reject non-default; omni-send omits it.
+  ( { echo "<!-- model: $m -->"
+      "$OMNI" --model "$m" --max-tokens 65536 --from-stdin <<<"$ARCHITECT_PROMPT" \
+        | jq -r '.choices[0].message.content' ; } > "$cf" 2>"$cf.err" \
+      || echo "FUSION_ARCHITECT_FAILED" >> "$cf.err" ) &
+  PIDS+=("$!")
+done
+for p in "${PIDS[@]}"; do wait "$p" || true; done
+
+# --- collect survivors ---------------------------------------------------
+declare -a SURVIVORS=()
+for cf in "${CFILES[@]}"; do
+  if [[ -s "$cf" ]] && ! grep -q FUSION_ARCHITECT_FAILED "$cf.err" 2>/dev/null \
+     && [[ "$(tr -d '[:space:]' < "$cf")" != "<!--model:"* || $(wc -l < "$cf") -gt 1 ]]; then
+    SURVIVORS+=("$cf")
+  else
+    echo "fusion-architect: a model failed or returned empty ($(head -1 "$cf" 2>/dev/null))" >&2
+  fi
+done
+
+# --- guard 3: never present a single-model answer as fusion --------------
+if [[ "${#SURVIVORS[@]}" -lt 2 ]]; then
+  echo "fusion-architect: only ${#SURVIVORS[@]} architect(s) survived — that is NOT fusion." >&2
+  echo "fusion-architect: refusing to dress a single-model answer as consensus. Fix the gateway/roster and re-run." >&2
+  exit 1
+fi
+DEGRADED=""
+[[ "${#SURVIVORS[@]}" -lt "${#MODELS[@]}" ]] && \
+  DEGRADED="fused from ${#SURVIVORS[@]} of ${#MODELS[@]}; $(( ${#MODELS[@]} - ${#SURVIVORS[@]} )) model(s) unavailable"
+
+# --- merge: authorship stripped, order shuffled --------------------------
+# Present proposals as "Proposal 1..N" with no model identity, in shuffled order,
+# so the merger reconciles on merit and can't infer authorship by position.
+mapfile -t SHUF < <(printf '%s\n' "${SURVIVORS[@]}" | shuf)
+MERGE_INPUT=""
+n=0
+for cf in "${SHUF[@]}"; do
+  n=$((n+1))
+  # strip the model comment so authorship is truly hidden
+  body="$(grep -v '^<!-- model:' "$cf")"
+  MERGE_INPUT+="
+
+===== PROPOSAL $n =====
+$body"
+done
+
+NONNEG="$(section_body 6)"
+SUCCESS="$(section_body 8)"
+
+MERGE_PROMPT="You are merging $n independent architecture proposals for the SAME spec, written by
+different models whose identities are hidden from you. Judge on merit only.
+
+The divergences ARE the value — two engineers were hired precisely so they would not say the same
+thing. Your job is NOT to flatten disagreement, and NOT to dump it all on the human. It is to
+CLASSIFY each divergence by what can settle it, and RECOMMEND a resolution — resolving nothing
+yourself. The human pulls each trigger.
+
+These §6 non-negotiables are AUTHORITATIVE — any option that violates one is rejected, not a choice:
+$NONNEG
+
+Success criteria for context (§8):
+$SUCCESS
+
+Produce EXACTLY these sections:
+
+## Consensus
+Decisions all proposals agreed on. Also collapse here any FALSE divergence — where proposals made
+the same decision in different words, or one is a strict superset of the other — and say so briefly.
+
+## Divergence (classified — you do NOT resolve these; the human triggers each)
+For every genuine disagreement, in this exact shape:
+
+  ### D<n>. <short title>
+  - **Type**: exactly one of —
+      SPEC-RESOLVED — one option violates a §6 non-negotiable (quote it); the spec already decides
+      EMPIRICAL     — hinges on a measurable fact; a cheap probe decides, not an opinion
+      TIEBREAKER    — a real engineering disagreement with a likely-better answer a third model can judge
+      VALUES CALL   — a genuine tradeoff, no objectively right answer; depends on what the user values
+  - **Option A**: <one position + its rationale, in substance from a proposal>
+  - **Option B**: <the other>
+  - **Cost if wrong**: A → <consequence>; B → <consequence>
+  - **Reversibility**: easy | hard — how costly to switch later
+  - **Recommended resolution** (match the Type):
+      SPEC-RESOLVED → 'Adopt <X>; <Y> violates §6 \"<quote>\".'
+      EMPIRICAL     → 'Run this probe: <the single cheapest concrete test>. Adopt whichever it favors.'
+      TIEBREAKER    → 'Escalate this one: fusion-architect --tiebreak <<< \"D<n>: A=… B=…\"'
+      VALUES CALL   → '<recommended default> — because <one line>. Flip if <condition>.'
+
+Rules you MUST obey:
+  - Do NOT pick a winner on a VALUES CALL. Recommend a default; the choice stays the human's.
+  - You may ONLY choose between options a proposal actually made. If you see a better third path,
+    label it 'NEW — unvalidated' and treat it as a VALUES CALL — never present it as resolved.
+  - A coherent choice between two positions beats a synthetic average. Do not blend incompatible
+    options into a mush neither engineer would endorse.
+
+## Rejected
+Options killed outright — every SPEC-RESOLVED violation and anything strictly dominated — with the reason.
+
+## Recommended synthesis
+ONE coherent architecture assembled from the Consensus, with each Divergence shown as an OPEN slot
+tagged '[D<n> — <TYPE>, provisional: <your recommended default>]'. It must stay internally coherent:
+where a decision is still open, state the default you would proceed with and mark it provisional —
+never fuse two incompatible options into one.
+
+PROPOSALS:$MERGE_INPUT"
+
+echo "fusion-architect: merging with $MERGER (authorship blind)..." >&2
+MERGED="$("$OMNI" --model "$MERGER" --max-tokens 65536 --from-stdin <<<"$MERGE_PROMPT" \
+          | jq -r '.choices[0].message.content')"
+
+RESULT="$OUT/fusion-result.md"
+{
+  echo "# Architecture fusion result"
+  echo
+  echo "- Spec: \`$SPEC\`"
+  echo "- Models: ${MODELS_CSV} (families: ${!SEEN_FAM[*]})"
+  echo "- Merger: $MERGER (authorship-blind)"
+  echo "- Panel size: $n${DEGRADED:+ — $DEGRADED}"
+  echo "- N=$n → $([ "$n" -ge 3 ] && echo 'quorum available' || echo 'NO quorum — TIEBREAKER divergences escalate to a third family via --tiebreak')"
+  echo
+  echo "---"
+  echo
+  echo "$MERGED"
+} > "$RESULT"
+
+echo "fusion-architect: wrote $RESULT" >&2
+echo "fusion-architect: work the classified divergences — most don't need you:" >&2
+echo "fusion-architect:   SPEC-RESOLVED → already decided by §6   EMPIRICAL → run the probe" >&2
+echo "fusion-architect:   TIEBREAKER    → fusion-architect --tiebreak < the-decision.txt" >&2
+echo "fusion-architect:   VALUES CALL   → yours (default is recommended)" >&2
+echo "fusion-architect: then fold the synthesis into spec §3/§4/§5/§7 and gate Phase 1 before code." >&2
+echo "$RESULT"
