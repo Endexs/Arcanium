@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+"""arcanium-sync-models — rebuild the omni block of ~/.pi/agent/models.json
+from what the proxy actually advertises.
+
+Why this exists: the hand-written omni catalog declared every model as
+`{"id": ..., "name": ...}` and nothing else. pi reads `reasoning` to decide
+whether a model can think and `contextWindow` for its ceiling, so a stub entry
+silently means "no reasoning, 128K" for models that in fact support extended
+thinking and a 1M window.
+
+The failure is invisible: `--thinking high` is accepted, the run succeeds, and
+`usage.reasoning` comes back 0. Nothing errors. You simply do not get the
+reasoning you configured and believe you are paying for.
+
+The proxy already knows the truth at /v1/models. This copies it over.
+
+    arcanium-sync-models            # show what would change
+    arcanium-sync-models --write    # apply (backs up first)
+"""
+
+import argparse
+import json
+import os
+import shutil
+import sys
+import urllib.request
+from datetime import datetime
+
+CATALOG = os.path.expanduser("~/.pi/agent/models.json")
+DEFAULT_ENDPOINT = "http://127.0.0.1:20128/v1/models"
+
+
+def fetch(endpoint):
+    try:
+        with urllib.request.urlopen(endpoint, timeout=15) as r:
+            return json.load(r)["data"]
+    except Exception as exc:
+        sys.exit(f"cannot reach the omni proxy at {endpoint}: {exc}")
+
+
+def entry(model, keep_name=None):
+    """One pi catalog entry, built from the proxy's advertised capabilities.
+
+    `reasoning` is the field pi checks, not `thinking` — the latter is only the
+    column header in `pi --list-models`. Writing `thinking: true` here looks
+    correct, changes nothing, and is exactly how this stayed broken.
+    """
+    caps = model.get("capabilities") or {}
+    out = {
+        "id": model["id"],
+        "name": keep_name or model.get("id"),
+        "contextWindow": model.get("context_length") or model.get("max_input_tokens") or 128_000,
+        "maxTokens": model.get("max_output_tokens") or 16_384,
+    }
+    if caps.get("thinking") or caps.get("reasoning"):
+        out["reasoning"] = True
+    if caps.get("vision") or caps.get("images"):
+        out["input"] = ["text", "image"]
+    return out
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--write", action="store_true", help="apply changes")
+    ap.add_argument("--endpoint", default=DEFAULT_ENDPOINT)
+    args = ap.parse_args()
+
+    catalog = json.load(open(CATALOG))
+    omni = catalog.get("providers", {}).get("omni")
+    if omni is None:
+        sys.exit("no omni provider in ~/.pi/agent/models.json")
+    offered = {m["id"]: m for m in fetch(args.endpoint)}
+    current = {m["id"]: m for m in omni.get("models", [])}
+
+    # Only models already in the catalog are rewritten. The proxy offers far
+    # more (aliases, auto/* routers); adopting them wholesale would change
+    # which model a bare name resolves to.
+    rebuilt, changes, missing = [], [], []
+    for mid, old in current.items():
+        if mid not in offered:
+            missing.append(mid)
+            rebuilt.append(old)
+            continue
+        new = entry(offered[mid], keep_name=old.get("name"))
+        rebuilt.append(new)
+        diff = {k: (old.get(k), new.get(k)) for k in
+                ("contextWindow", "maxTokens", "reasoning")
+                if old.get(k) != new.get(k)}
+        if diff:
+            changes.append((mid, diff))
+
+    if not changes:
+        print("catalog already matches the proxy.")
+        return
+
+    width = max(len(m) for m, _ in changes)
+    print(f"{len(changes)} of {len(current)} omni models differ from the proxy:\n")
+    for mid, diff in changes:
+        bits = [f"{k}: {a} -> {b}" for k, (a, b) in diff.items()]
+        print(f"  {mid:<{width}}  " + "  |  ".join(bits))
+    gained = sum(1 for _, d in changes if d.get("reasoning", (None, None))[1])
+    print(f"\n{gained} model(s) gain reasoning they always supported.")
+    if missing:
+        print(f"{len(missing)} in catalog but not offered by the proxy: {', '.join(missing)}")
+
+    if not args.write:
+        print("\n(dry run — re-run with --write to apply)")
+        return
+
+    backup = f"{CATALOG}.{datetime.now():%Y%m%d-%H%M%S}.bak"
+    shutil.copy2(CATALOG, backup)
+    omni["models"] = rebuilt
+    with open(CATALOG, "w") as fh:
+        json.dump(catalog, fh, indent=2)
+        fh.write("\n")
+    print(f"\nwritten. backup: {backup}")
+
+
+if __name__ == "__main__":
+    main()

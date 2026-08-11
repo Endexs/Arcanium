@@ -29,6 +29,7 @@ This project uses the following skills from `skills/` (or `~/.claude/skills/`):
 - `workflow/spec-coach` — Socratic loop that auto-invokes on empty PM-owned spec sections; helps user fill blanks well without inventing
 - `workflow/gate-first-validation` — Full-tier only: author an executable acceptance gate BEFORE implementing, prove it red, freeze it (the builder may never edit it), then loop build→gate until green or halt at N=3
 - `workflow/model-fusion` — high-stakes forks only: 2–3 models from distinct families solve the same problem in parallel; an authorship-blind merger reconciles with consensus/divergence provenance. Costs 2–3×, so budget it
+- `quality/second-opinion` — two models answer a load-bearing decision independently and BOTH answers come back unmerged; trigger on the structural checklist (public interface / auth / schema / competing designs / low confidence), never on a judgement about whether it feels important
 - `quality/good-enough-rubric` — five-question review, not perfectionism
 - `quality/adversarial-review` — separate agent hunts for bugs
 - `engineering/boring-tech` — default to widely-used, well-documented, easy-to-swap tools; justify any non-default choice in the decision log
@@ -93,6 +94,11 @@ Same as medium, but with split-run partitioning per `process/split-run-implement
 
 ### For non-negotiable paths
 Full pipeline regardless of size. See `quality/non-negotiable-paths.md`.
+
+### Before recording any load-bearing decision
+Call the `second_opinion` tool when the decision changes a public interface, schema, auth/authz or payments path; picks between viable designs or migration strategies; would be costly to undo; or when your own confidence is below high. **Check that list — do not first decide whether the decision is "important enough"; that judgement is exactly what gets skipped.** Being able to answer it yourself is not a reason to skip it.
+
+Read the two answers by diffing their **WHAT WOULD CHANGE MY MIND** sections — that is where the real disagreement lives. Never average them. A second opinion raises `Confidence` in the decision log; it never sets `Validated = yes`, because two models agreeing is two guesses that match, not evidence. See `quality/second-opinion.md`.
 
 ## Commit conventions
 - Use commit messages that describe **why**, not just **what**

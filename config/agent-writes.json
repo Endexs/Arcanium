@@ -1,0 +1,31 @@
+{
+  "_doc": [
+    "What each agent may CHANGE, verified after the fact by `arcanium-runs changed --agent <name>`.",
+    "",
+    "`tools:` in a subagent definition is a capability list, not a sandbox. Two holes:",
+    "  * bash runs anything - an agent given bash to run tests can also run `git checkout`.",
+    "  * write reaches any path, not only the one it was granted the tool for.",
+    "So permission is verified against the repo itself, not trusted at the prompt.",
+    "",
+    "[]        = read-only; ANY change is a breach",
+    "[...]     = only these; a trailing / covers a subtree, otherwise glob",
+    "null      = unrestricted (deliberately unenforced)"
+  ],
+
+  "planner":            [],
+  "merger":             [],
+  "fusion-candidate-a": [],
+  "fusion-candidate-b": [],
+
+  "reviewer": [],
+
+  "fixer": ["src/", "tests/"],
+
+  "implementer": ["src/", "tests/", "docs/", "pyproject.toml"],
+
+  "_notes": {
+    "reviewer": "Has `tools: read, bash`. bash is the hole - it can write via `sh -c 'cat > f'` or destroy work via `git checkout`. quality/adversarial-review says the reviewer changes nothing; [] is that rule made checkable.",
+    "fixer": "quality/mechanical-fix limits it to narrow patches. It may not touch pyproject.toml or docs - a dependency change is re-scoping, which is the implementer's call.",
+    "implementer": "Frozen gates are NOT covered here. `arcanium-runs freeze` guards those by content hash, which is stricter: it holds even for paths inside this allowlist."
+  }
+}

@@ -1,0 +1,529 @@
+#!/usr/bin/env python3
+"""arcanium-runs — group subagent tasks into workflow runs.
+
+The pi-subagents extension already records every task: tokens, cost, turns,
+model, effort, transcript, error category. What it has no concept of is a RUN —
+"these six tasks were one feature." Tasks are a flat list scoped by cwd.
+
+This adds exactly that one missing layer and nothing else. It never writes to
+the extension's database; it opens that read-only and keeps its own sidecar of
+run -> task bindings, joined at query time.
+
+    arcanium-runs open  "add /health endpoint"     # start a run in this cwd
+    arcanium-runs close --accepted                 # claim tasks, set verdict
+    arcanium-runs ls                               # runs with rollups
+    arcanium-runs show <run_id>                    # phase-by-phase
+    arcanium-runs adopt --gap 20                   # rebuild runs from history
+    arcanium-runs unbound                          # tasks in no run
+"""
+
+import argparse
+import fnmatch
+import hashlib
+import json
+import os
+import sqlite3
+import subprocess
+import sys
+from datetime import datetime, timedelta
+
+HISTORY = os.path.expanduser("~/.local/share/pi/subagents/subagents-history.sqlite")
+RUNS = os.path.expanduser("~/.local/share/pi/subagents/arcanium-runs.sqlite")
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS runs (
+  run_id     TEXT PRIMARY KEY,
+  name       TEXT,
+  cwd        TEXT,
+  status     TEXT DEFAULT 'open',   -- open | accepted | rejected
+  started_at TEXT,
+  ended_at   TEXT
+);
+CREATE TABLE IF NOT EXISTS run_tasks (
+  task_id TEXT PRIMARY KEY,         -- one task belongs to at most one run
+  run_id  TEXT REFERENCES runs,
+  seq     INTEGER
+);
+CREATE TABLE IF NOT EXISTS guards (
+  guard_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+  run_id      TEXT REFERENCES runs,
+  path        TEXT,
+  sha256      TEXT,               -- content at freeze time; the whole point
+  frozen_at   TEXT,
+  released_at TEXT                -- NULL = still frozen
+);
+CREATE TABLE IF NOT EXISTS snapshots (
+  run_id      TEXT REFERENCES runs,
+  label       TEXT,
+  taken_at    TEXT,
+  tree_json   TEXT,               -- {path: fingerprint} of the dirty working tree
+  PRIMARY KEY (run_id, label)
+);
+CREATE TABLE IF NOT EXISTS breaches (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  run_id      TEXT REFERENCES runs,
+  kind        TEXT,               -- frozen_gate | outside_allowlist
+  path        TEXT,
+  detail      TEXT,
+  detected_at TEXT
+);
+"""
+
+
+def connect():
+    if not os.path.exists(HISTORY):
+        sys.exit(f"no subagent history at {HISTORY} — has the extension ever run?")
+    # uri=True is what makes the read-only ATTACH below honour `mode=ro`;
+    # the flag is connection-wide, and a plain path still opens normally.
+    db = sqlite3.connect(RUNS, uri=True)
+    db.row_factory = sqlite3.Row
+    db.executescript(SCHEMA)
+    # Read-only attach: this tool must never be the reason that db is corrupt.
+    db.execute("ATTACH DATABASE ? AS hist", (f"file:{HISTORY}?mode=ro",))
+    return db
+
+
+def now():
+    return datetime.now().astimezone().isoformat()
+
+
+def new_run_id(db):
+    n = db.execute("SELECT COUNT(*) FROM runs").fetchone()[0] + 1
+    return f"run_{n:04d}"
+
+
+# ── enforcement primitives ───────────────────────────────────────────────────
+
+def _git(args, cwd):
+    r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
+    return r.stdout if r.returncode == 0 else ""
+
+
+def _sha(path):
+    try:
+        return hashlib.sha256(open(path, "rb").read()).hexdigest()
+    except OSError:
+        return None                 # missing counts as changed, not as absent
+
+
+def tree_fingerprint(cwd):
+    """Fingerprint every path the working tree currently differs on.
+
+    Ported in spirit from SSSF's permissions.snapshot(). Tracked files carry
+    their numstat counts so an edit to an already-dirty file still registers;
+    untracked files are listed by name. Gitignored paths never appear.
+
+    Comparing change-SETS rather than watching for writes is what catches a
+    reversion: a path dirty before and clean after has been reverted, and a
+    reversion is a modification.
+    """
+    fp = {}
+    for line in _git(["diff", "HEAD", "--numstat"], cwd).splitlines():
+        f = line.split("\t")
+        if len(f) >= 3:
+            fp[f[-1].strip()] = f"{f[0]},{f[1]}"
+    for path in _git(["ls-files", "--others", "--exclude-standard"], cwd).splitlines():
+        if path.strip():
+            fp[path.strip()] = "untracked"
+    return fp
+
+
+POLICY = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                      "..", "config", "agent-writes.json")
+
+
+def writes_for(agent):
+    """The allowlist an agent is held to. Missing agent = unrestricted (None)."""
+    try:
+        policy = json.load(open(os.path.normpath(POLICY)))
+    except OSError:
+        sys.exit(f"no write policy at {os.path.normpath(POLICY)}")
+    if agent not in policy:
+        sys.exit(f"agent {agent!r} is not in the write policy. "
+                 f"known: {', '.join(k for k in policy if not k.startswith('_'))}")
+    return policy[agent]
+
+
+def allowed(path, patterns):
+    """A trailing-slash pattern covers a subtree; everything else is a glob."""
+    for pat in patterns:
+        if pat.endswith("/") and (path == pat.rstrip("/") or path.startswith(pat)):
+            return True
+        if fnmatch.fnmatch(path, pat):
+            return True
+    return False
+
+
+def _breach(db, run_id, kind, path, detail):
+    db.execute("INSERT INTO breaches (run_id, kind, path, detail, detected_at)"
+               " VALUES (?,?,?,?,?)", (run_id, kind, path, detail, now()))
+
+
+def _require_run(db, args, cwd):
+    run = (db.execute("SELECT * FROM runs WHERE run_id=?", (args.run,)).fetchone()
+           if getattr(args, "run", None) else
+           db.execute("SELECT * FROM runs WHERE cwd=? AND status='open' "
+                      "ORDER BY started_at DESC LIMIT 1", (cwd,)).fetchone())
+    if not run:
+        sys.exit("no open run here — `arcanium-runs open \"<what>\"` first.")
+    return run
+
+
+def check_guards(db, run):
+    """Recompute every frozen path. Returns the list of violations found.
+
+    This needs no attribution: a frozen gate that changed is invalid no matter
+    who changed it. That is what makes it enforceable without wrapping the
+    agent — the evidence is the file, not the actor.
+    """
+    found = []
+    rows = db.execute("SELECT * FROM guards WHERE run_id=? AND released_at IS NULL",
+                      (run["run_id"],)).fetchall()
+    for g in rows:
+        full = os.path.join(run["cwd"], g["path"])
+        current = _sha(full)
+        if current == g["sha256"]:
+            continue
+        why = "deleted" if current is None else f"sha {g['sha256'][:12]} -> {current[:12]}"
+        found.append((g["path"], why))
+        _breach(db, run["run_id"], "frozen_gate", g["path"], why)
+    db.commit()
+    return found
+
+
+# ── commands ─────────────────────────────────────────────────────────────────
+
+def cmd_open(db, args):
+    cwd = args.cwd or os.getcwd()
+    live = db.execute(
+        "SELECT run_id, name FROM runs WHERE cwd=? AND status='open'", (cwd,)).fetchone()
+    if live and not args.force:
+        sys.exit(f"run {live['run_id']} is already open here ({live['name']!r}).\n"
+                 f"close it first, or pass --force to open a second one.")
+    run_id = new_run_id(db)
+    db.execute("INSERT INTO runs (run_id, name, cwd, started_at) VALUES (?,?,?,?)",
+               (run_id, args.name, cwd, now()))
+    db.commit()
+    print(f"{run_id} open — {args.name!r}")
+    print(f"  cwd: {cwd}")
+    print("  every subagent task from now until `close` is claimed by this run.")
+
+
+def _claim(db, run):
+    """Bind every unclaimed task in this cwd created after the run opened."""
+    rows = db.execute(
+        """SELECT t.id, t.created_at FROM hist.subagent_tasks t
+           LEFT JOIN run_tasks rt ON rt.task_id = t.id
+           WHERE rt.task_id IS NULL AND t.cwd = ? AND t.created_at >= ?
+           ORDER BY t.created_at""",
+        (run["cwd"], run["started_at"])).fetchall()
+    for seq, row in enumerate(rows, 1):
+        db.execute("INSERT OR IGNORE INTO run_tasks (task_id, run_id, seq) VALUES (?,?,?)",
+                   (row["id"], run["run_id"], seq))
+    db.commit()
+    return len(rows)
+
+
+def cmd_close(db, args):
+    cwd = args.cwd or os.getcwd()
+    run = (db.execute("SELECT * FROM runs WHERE run_id=?", (args.run,)).fetchone()
+           if args.run else
+           db.execute("SELECT * FROM runs WHERE cwd=? AND status='open' "
+                      "ORDER BY started_at DESC LIMIT 1", (cwd,)).fetchone())
+    if not run:
+        sys.exit("no open run here — `arcanium-runs open \"<what>\"` first.")
+    claimed = _claim(db, run)
+    # Frozen gates are checked BEFORE the verdict is written. A run whose gate
+    # moved cannot be accepted: the gate is the only evidence the work is good,
+    # and evidence the builder could edit is not evidence.
+    violations = check_guards(db, run)
+    if violations and args.accepted and not args.force:
+        print(f"REFUSING to accept {run['run_id']} — {len(violations)} frozen "
+              f"path(s) changed since freeze:", file=sys.stderr)
+        for path, why in violations:
+            print(f"  ! {path}  ({why})", file=sys.stderr)
+        sys.exit("\nthe gate that judged this work was modified. re-freeze and "
+                 "re-run it, or --force if you know why it moved.")
+    status = "accepted" if args.accepted else "rejected"
+    db.execute("UPDATE runs SET status=?, ended_at=? WHERE run_id=?",
+               (status, now(), run["run_id"]))
+    db.commit()
+    print(f"{run['run_id']} {status} — {claimed} task(s) claimed")
+    _print_run(db, run["run_id"])
+
+
+def cmd_adopt(db, args):
+    """Retroactively cluster history into runs by cwd + idle gap.
+
+    For history recorded before this tool existed. A gap longer than --gap
+    minutes between consecutive tasks in the same cwd starts a new run.
+    """
+    rows = db.execute(
+        """SELECT t.id, t.cwd, t.created_at, t.task FROM hist.subagent_tasks t
+           LEFT JOIN run_tasks rt ON rt.task_id = t.id
+           WHERE rt.task_id IS NULL ORDER BY t.cwd, t.created_at""").fetchall()
+    if not rows:
+        print("nothing unbound — every task already belongs to a run.")
+        return
+    gap = timedelta(minutes=args.gap)
+    made = prev_cwd = prev_time = None
+    made_count = seq = 0
+    for row in rows:
+        ts = datetime.fromisoformat(row["created_at"])
+        fresh = (row["cwd"] != prev_cwd) or (prev_time and ts - prev_time > gap)
+        if fresh:
+            run_id = new_run_id(db)
+            made_count += 1
+            seq = 0
+            # Name the run after whatever kicked it off — the first task's text.
+            label = " ".join((row["task"] or "").split())[:60] or "(untitled)"
+            db.execute(
+                "INSERT INTO runs (run_id, name, cwd, status, started_at) VALUES (?,?,?,?,?)",
+                (run_id, label, row["cwd"], "adopted", row["created_at"]))
+            made = run_id
+        seq += 1
+        db.execute("INSERT OR IGNORE INTO run_tasks (task_id, run_id, seq) VALUES (?,?,?)",
+                   (row["id"], made, seq))
+        db.execute("UPDATE runs SET ended_at=? WHERE run_id=?", (row["created_at"], made))
+        prev_cwd, prev_time = row["cwd"], ts
+    db.commit()
+    print(f"adopted {len(rows)} task(s) into {made_count} run(s) (gap > {args.gap}m splits)")
+    cmd_ls(db, args)
+
+
+ROLLUP = """
+SELECT r.run_id, r.name, r.status, r.cwd, r.started_at,
+       COUNT(t.id)                                    AS tasks,
+       SUM(t.status='completed')                      AS ok,
+       SUM(t.status='failed')                         AS bad,
+       COALESCE(SUM(t.usage_input+t.usage_output),0)  AS tokens,
+       COALESCE(SUM(t.usage_cost),0)                  AS cost,
+       COALESCE(SUM(t.usage_turns),0)                 AS turns
+FROM runs r
+LEFT JOIN run_tasks rt ON rt.run_id = r.run_id
+LEFT JOIN hist.subagent_tasks t ON t.id = rt.task_id
+GROUP BY r.run_id ORDER BY r.started_at DESC
+"""
+
+
+def cmd_ls(db, args):
+    rows = db.execute(ROLLUP).fetchall()
+    if not rows:
+        print("no runs yet.")
+        return
+    print(f"{'RUN':<9} {'STATUS':<9} {'TASKS':<6} {'OK/FAIL':<8} "
+          f"{'TOKENS':<9} {'COST':<9} {'WHAT'}")
+    for r in rows:
+        cost = f"${r['cost']:.4f}" if r["cost"] else "—"
+        print(f"{r['run_id']:<9} {r['status']:<9} {r['tasks']:<6} "
+              f"{str(r['ok'] or 0)+'/'+str(r['bad'] or 0):<8} "
+              f"{r['tokens']:<9} {cost:<9} {(r['name'] or '')[:44]}")
+
+
+def _print_run(db, run_id):
+    rows = db.execute(
+        """SELECT rt.seq, t.agent, t.status, t.model, t.effort,
+                  COALESCE(t.usage_input+t.usage_output,0) tok,
+                  COALESCE(t.usage_cost,0) cost, COALESCE(t.usage_turns,0) turns,
+                  t.error_category, substr(t.task,1,50) task
+           FROM run_tasks rt JOIN hist.subagent_tasks t ON t.id = rt.task_id
+           WHERE rt.run_id = ? ORDER BY rt.seq""", (run_id,)).fetchall()
+    if not rows:
+        print("  (no tasks bound)")
+        return
+    print(f"\n  {'#':<3} {'AGENT':<20} {'STATUS':<10} {'TOK':<8} {'TURNS':<6} {'MODEL'}")
+    for r in rows:
+        flag = f"  !{r['error_category']}" if r["error_category"] else ""
+        print(f"  {r['seq']:<3} {r['agent']:<20} {r['status']:<10} {r['tok']:<8} "
+              f"{r['turns']:<6} {(r['model'] or '?')[:30]}{flag}")
+
+
+def cmd_show(db, args):
+    run = db.execute("SELECT * FROM runs WHERE run_id=?", (args.run_id,)).fetchone()
+    if not run:
+        sys.exit(f"no such run: {args.run_id}")
+    print(f"{run['run_id']}  [{run['status']}]  {run['name']!r}")
+    print(f"  cwd     {run['cwd']}")
+    print(f"  started {run['started_at']}")
+    print(f"  ended   {run['ended_at'] or '(still open)'}")
+    _print_run(db, run["run_id"])
+
+
+def cmd_unbound(db, args):
+    rows = db.execute(
+        """SELECT t.id, t.agent, t.status, t.created_at, substr(t.task,1,44) task
+           FROM hist.subagent_tasks t LEFT JOIN run_tasks rt ON rt.task_id = t.id
+           WHERE rt.task_id IS NULL ORDER BY t.created_at DESC""").fetchall()
+    if not rows:
+        print("every task belongs to a run.")
+        return
+    print(f"{len(rows)} task(s) in no run:")
+    for r in rows:
+        print(f"  {r['created_at'][:16]}  {r['agent']:<20} {r['status']:<10} {r['task']!r}")
+
+
+def cmd_freeze(db, args):
+    cwd = args.cwd or os.getcwd()
+    run = _require_run(db, args, cwd)
+    for path in args.paths:
+        rel = os.path.relpath(os.path.abspath(path), cwd)
+        sha = _sha(os.path.join(cwd, rel))
+        if sha is None:
+            sys.exit(f"cannot freeze {rel} — no such file. "
+                     f"a gate must exist (and fail red) before it is frozen.")
+        db.execute("INSERT INTO guards (run_id, path, sha256, frozen_at) VALUES (?,?,?,?)",
+                   (run["run_id"], rel, sha, now()))
+        print(f"frozen  {rel}  sha256:{sha[:16]}")
+    db.commit()
+    print(f"\n{run['run_id']} will refuse --accepted if these change.")
+
+
+def cmd_verify(db, args):
+    run = _require_run(db, args, args.cwd or os.getcwd())
+    frozen = db.execute("SELECT COUNT(*) FROM guards WHERE run_id=? AND released_at IS NULL",
+                        (run["run_id"],)).fetchone()[0]
+    if not frozen:
+        print(f"{run['run_id']}: nothing frozen.")
+        return
+    violations = check_guards(db, run)
+    if not violations:
+        print(f"{run['run_id']}: {frozen} frozen path(s) intact.")
+        return
+    print(f"{run['run_id']}: {len(violations)} of {frozen} frozen path(s) CHANGED")
+    for path, why in violations:
+        print(f"  ! {path}  ({why})")
+    sys.exit(1)
+
+
+def cmd_snapshot(db, args):
+    cwd = args.cwd or os.getcwd()
+    run = _require_run(db, args, cwd)
+    tree = tree_fingerprint(cwd)
+    db.execute("INSERT INTO snapshots (run_id, label, taken_at, tree_json)"
+               " VALUES (?,?,?,?) ON CONFLICT(run_id, label) DO UPDATE SET"
+               " taken_at=excluded.taken_at, tree_json=excluded.tree_json",
+               (run["run_id"], args.label, now(), json.dumps(tree)))
+    db.commit()
+    print(f"{run['run_id']}/{args.label}: {len(tree)} dirty path(s) fingerprinted")
+
+
+def cmd_changed(db, args):
+    cwd = args.cwd or os.getcwd()
+    run = _require_run(db, args, cwd)
+    row = db.execute("SELECT tree_json FROM snapshots WHERE run_id=? AND label=?",
+                     (run["run_id"], args.label)).fetchone()
+    if not row:
+        sys.exit(f"no snapshot {args.label!r} for {run['run_id']}")
+    before, after = json.loads(row["tree_json"]), tree_fingerprint(cwd)
+    moved = sorted(set(before) | set(after))
+    moved = [p for p in moved if before.get(p) != after.get(p)]
+    if not moved:
+        print(f"nothing changed since {args.label!r}.")
+        return
+    patterns, unrestricted = args.allow, not args.allow
+    if args.agent:
+        patterns = writes_for(args.agent)
+        if patterns is None:                      # explicitly unrestricted
+            print(f"{args.agent} is unrestricted by policy; nothing to enforce.")
+            return
+        unrestricted = False                      # [] means read-only, not "skip"
+        print(f"holding {args.agent} to: {patterns or '(read-only)'}")
+
+    bad = []
+    print(f"{len(moved)} path(s) changed since {args.label!r}:")
+    for path in moved:
+        ok = True if unrestricted else allowed(path, patterns)
+        # A path dirty before and clean after was reverted. Reversion is a change.
+        how = ("reverted" if path not in after else
+               "now dirty" if path not in before else "modified again")
+        print(f"  {'  ' if ok else '! '}{path}  ({how})")
+        if not ok:
+            bad.append(path)
+            who = f"{args.agent}: " if args.agent else ""
+            _breach(db, run["run_id"], "outside_allowlist", path, f"{who}{how}")
+    db.commit()
+    if bad:
+        print(f"\n{len(bad)} path(s) outside the allowlist — recorded as breaches.")
+        sys.exit(1)
+
+
+def cmd_breaches(db, args):
+    where, params = ("WHERE run_id=?", (args.run,)) if args.run else ("", ())
+    rows = db.execute(f"SELECT * FROM breaches {where} ORDER BY detected_at DESC",
+                      params).fetchall()
+    if not rows:
+        print("no breaches recorded.")
+        return
+    print(f"{'RUN':<9} {'KIND':<18} {'WHEN':<17} PATH")
+    for r in rows:
+        print(f"{r['run_id']:<9} {r['kind']:<18} {r['detected_at'][:16]:<17} "
+              f"{r['path']}  ({r['detail']})")
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--cwd", help="operate as if in this directory")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    p = sub.add_parser("open", help="start a run in this cwd")
+    p.add_argument("name")
+    p.add_argument("--force", action="store_true", help="allow a second open run here")
+    p.set_defaults(fn=cmd_open)
+
+    p = sub.add_parser("close", help="claim tasks and record the verdict")
+    p.add_argument("--run", help="run id (default: the open run in this cwd)")
+    g = p.add_mutually_exclusive_group(required=True)
+    g.add_argument("--accepted", action="store_true")
+    g.add_argument("--rejected", action="store_true")
+    p.add_argument("--force", action="store_true",
+                   help="accept even though a frozen path changed")
+    p.set_defaults(fn=cmd_close)
+
+    p = sub.add_parser("ls", help="runs with rollups")
+    p.set_defaults(fn=cmd_ls)
+
+    p = sub.add_parser("show", help="one run, phase by phase")
+    p.add_argument("run_id")
+    p.set_defaults(fn=cmd_show)
+
+    p = sub.add_parser("adopt", help="rebuild runs from existing history")
+    p.add_argument("--gap", type=int, default=20, help="idle minutes that split runs")
+    p.set_defaults(fn=cmd_adopt)
+
+    p = sub.add_parser("unbound", help="tasks in no run")
+    p.set_defaults(fn=cmd_unbound)
+
+    p = sub.add_parser("freeze", help="mark paths immutable for this run")
+    p.add_argument("paths", nargs="+")
+    p.add_argument("--run")
+    p.set_defaults(fn=cmd_freeze)
+
+    p = sub.add_parser("verify", help="recheck frozen paths now")
+    p.add_argument("--run")
+    p.set_defaults(fn=cmd_verify)
+
+    p = sub.add_parser("snapshot", help="fingerprint the working tree")
+    p.add_argument("label")
+    p.add_argument("--run")
+    p.set_defaults(fn=cmd_snapshot)
+
+    p = sub.add_parser("changed", help="what moved since a snapshot")
+    p.add_argument("label")
+    p.add_argument("--allow", nargs="*", default=[],
+                   help="globs, or dir/ for a subtree; anything else is a breach")
+    p.add_argument("--agent", help="hold to this agent's config/agent-writes.json allowlist")
+    p.add_argument("--run")
+    p.set_defaults(fn=cmd_changed)
+
+    p = sub.add_parser("breaches", help="recorded violations")
+    p.add_argument("--run")
+    p.set_defaults(fn=cmd_breaches)
+
+    args = ap.parse_args()
+    db = connect()
+    args.fn(db, args)
+
+
+if __name__ == "__main__":
+    main()

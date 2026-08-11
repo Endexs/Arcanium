@@ -1,0 +1,330 @@
+#!/usr/bin/env python3
+"""arcanium-visualize — project Arcanium run data into SSSF's schema so the
+super-simple-software-factory visualizer can render it unmodified.
+
+The UI is worth reusing; its database is not. It expects sssf.db
+(sessions/phases/events/envelopes/gate_results/agent_sessions). Our data lives
+in two other places:
+
+    subagents-history.sqlite   the extension's task log (source of truth)
+    arcanium-runs.sqlite       run grouping, frozen gates, breaches
+
+This builds a THROWAWAY third database shaped the way the UI wants, joining
+those two. Nothing here is a source of truth: delete it, rebuild it, no loss.
+Rebuild before each viewing; it takes milliseconds.
+
+    arcanium-visualize            # rebuild the projection
+    arcanium-visualize --serve    # rebuild, then boot the UI
+"""
+
+import argparse
+import json
+import os
+import re
+import shutil
+import sqlite3
+import subprocess
+import sys
+
+HISTORY = os.path.expanduser("~/.local/share/pi/subagents/subagents-history.sqlite")
+RUNS = os.path.expanduser("~/.local/share/pi/subagents/arcanium-runs.sqlite")
+OUT = os.path.expanduser("~/.local/share/pi/subagents/sssf-projection.db")
+APP = os.path.expanduser("~/.local/share/arcanium/visualizer")
+
+# Stable lane colours, so an agent keeps its identity across runs.
+COLORS = {
+    "planner": "#a78bfa", "implementer": "#22d3ee", "reviewer": "#fb7185",
+    "fixer": "#fbbf24", "merger": "#34d399",
+    "fusion-candidate-a": "#f472b6", "fusion-candidate-b": "#60a5fa",
+}
+DEFAULT_COLOR = "#94a3b8"
+
+# runs.status -> sessions.status (the UI knows running|success|fail only)
+RUN_STATUS = {"open": "running", "accepted": "success",
+              "rejected": "fail", "adopted": "success"}
+# subagent_tasks.status -> phases.status
+TASK_STATUS = {"completed": "success", "failed": "fail", "running": "running"}
+
+DROP_ALL = """
+DROP TABLE IF EXISTS sessions; DROP TABLE IF EXISTS phases;
+DROP TABLE IF EXISTS events; DROP TABLE IF EXISTS envelopes;
+DROP TABLE IF EXISTS gate_results; DROP TABLE IF EXISTS processes;
+DROP TABLE IF EXISTS agent_sessions;
+"""
+
+SCHEMA = """
+CREATE TABLE sessions (
+  adw_id TEXT PRIMARY KEY, adw_name TEXT, request TEXT, status TEXT, engineer TEXT,
+  started_at TEXT, ended_at TEXT, total_tokens INTEGER DEFAULT 0,
+  total_cost REAL DEFAULT 0, archived INTEGER DEFAULT 0);
+CREATE TABLE phases (
+  phase_id TEXT PRIMARY KEY, adw_id TEXT, seq INTEGER, name TEXT, kind TEXT,
+  owner TEXT, description TEXT, status TEXT, attempt INTEGER DEFAULT 0,
+  retries INTEGER DEFAULT 0, error TEXT, started_at TEXT, ended_at TEXT);
+CREATE TABLE events (
+  event_id TEXT PRIMARY KEY, adw_id TEXT, phase_id TEXT, parent_id TEXT,
+  type TEXT, name TEXT, payload_json TEXT, tokens INTEGER,
+  started_at TEXT, ended_at TEXT);
+CREATE TABLE envelopes (
+  envelope_id TEXT PRIMARY KEY, adw_id TEXT, phase_id TEXT, agent TEXT,
+  output_type TEXT, payload_json TEXT, valid INTEGER, attempt INTEGER,
+  created_at TEXT);
+CREATE TABLE gate_results (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, adw_id TEXT, phase_id TEXT, attempt INTEGER,
+  gate TEXT, passed INTEGER, violations_json TEXT, checks_json TEXT, created_at TEXT);
+CREATE TABLE processes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, adw_id TEXT, kind TEXT, name TEXT,
+  pid INTEGER, command TEXT, started_at TEXT, ended_at TEXT);
+CREATE TABLE agent_sessions (
+  adw_id TEXT, agent TEXT, coding_agent TEXT, model TEXT, color TEXT,
+  session_id TEXT, context_tokens INTEGER, context_window INTEGER,
+  created_at TEXT, last_used_at TEXT, PRIMARY KEY (adw_id, agent));
+"""
+
+# Activities that are really tool calls, so the UI can nest them under a phase.
+# `streaming` is deliberately absent: it is per-token progress noise, ~86% of
+# all rows, and projecting it would bury the real spans.
+TOOL_PREFIXES = ("bash", "read", "edit", "write", "grep", "find", "ls",
+                 "web_search", "fetch", "tool ", "nested")
+
+
+def context_windows():
+    """model string -> context ceiling, read from pi's merged catalog."""
+    try:
+        out = subprocess.run(["pi", "--list-models"], capture_output=True,
+                             text=True, timeout=60).stdout
+    except Exception:
+        return {}
+    sizes = {}
+    for line in out.splitlines()[1:]:
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+        provider, model, ctx = parts[0], parts[1], parts[2]
+        m = re.match(r"([\d.]+)([KM])", ctx)
+        if not m:
+            continue
+        n = float(m.group(1)) * (1_000 if m.group(2) == "K" else 1_000_000)
+        # Stored model strings are the full "provider/id" pi reports back.
+        sizes[f"{provider}/{model}"] = int(n)
+        sizes[model] = int(n)
+    return sizes
+
+
+def describe(task, agent):
+    """Every phase earns a description — one line, never blank.
+
+    SSSF rejects a description that only restates the name, and the UI shows
+    it as the phase's whole intent, so an empty string here would render a
+    lane nobody can interpret.
+    """
+    text = " ".join((task or "").split())
+    return text[:160] if text else f"{agent}: (no task text recorded)"
+
+
+def build():
+    if not os.path.exists(HISTORY):
+        sys.exit(f"no subagent history at {HISTORY}")
+    if not os.path.exists(RUNS):
+        sys.exit(f"no runs db at {RUNS} — run `arcanium-runs adopt` first.")
+
+    # Rebuild IN PLACE. Deleting and recreating the file changes its inode,
+    # and a visualizer server started earlier holds the old one open — it would
+    # go on serving stale data forever with no error anywhere.
+    db = sqlite3.connect(OUT)
+    db.executescript(DROP_ALL)
+    db.executescript(SCHEMA)
+    db.execute("ATTACH DATABASE ? AS hist", (f"file:{HISTORY}?mode=ro",))
+    db.execute("ATTACH DATABASE ? AS runs", (f"file:{RUNS}?mode=ro",))
+    db.row_factory = sqlite3.Row
+    windows = context_windows()
+    engineer = os.environ.get("USER") or "engineer"
+    counts = dict(sessions=0, phases=0, events=0, gates=0)
+
+    for run in db.execute("SELECT * FROM runs.runs ORDER BY started_at").fetchall():
+        tasks = db.execute(
+            """SELECT t.*, rt.seq FROM runs.run_tasks rt
+               JOIN hist.subagent_tasks t ON t.id = rt.task_id
+               WHERE rt.run_id = ? ORDER BY rt.seq""", (run["run_id"],)).fetchall()
+        tokens = sum((t["usage_input"] or 0) + (t["usage_output"] or 0) for t in tasks)
+        cost = sum(t["usage_cost"] or 0 for t in tasks)
+        # The chain of agents is the closest thing we have to an "ADW name".
+        chain = " + ".join(dict.fromkeys(t["agent"] for t in tasks)) or "(empty)"
+
+        db.execute(
+            "INSERT INTO sessions (adw_id, adw_name, request, status, engineer,"
+            " started_at, ended_at, total_tokens, total_cost, archived)"
+            " VALUES (?,?,?,?,?,?,?,?,?,0)",
+            (run["run_id"], chain, run["name"],
+             RUN_STATUS.get(run["status"], "running"), engineer,
+             run["started_at"], run["ended_at"], tokens, cost))
+        counts["sessions"] += 1
+
+        for t in tasks:
+            pid_ = t["id"]
+            status = TASK_STATUS.get(t["status"], "queued")
+            db.execute(
+                "INSERT INTO phases (phase_id, adw_id, seq, name, kind, owner,"
+                " description, status, attempt, retries, error, started_at, ended_at)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (pid_, run["run_id"], t["seq"], t["agent"], "agent", t["agent"],
+                 describe(t["task"], t["agent"]), status, t["attempt"] or 1,
+                 t["pi_retry_attempts"] or 0, t["error"],
+                 t["started_at"] or t["created_at"], t["ended_at"]))
+            counts["phases"] += 1
+
+            model = t["model"] or "?"
+            db.execute(
+                "INSERT INTO agent_sessions (adw_id, agent, coding_agent, model,"
+                " color, session_id, context_tokens, context_window, created_at,"
+                " last_used_at) VALUES (?,?,?,?,?,?,?,?,?,?)"
+                " ON CONFLICT(adw_id, agent) DO UPDATE SET model=excluded.model,"
+                " context_tokens=excluded.context_tokens,"
+                " last_used_at=excluded.last_used_at",
+                (run["run_id"], t["agent"], "pi", model,
+                 COLORS.get(t["agent"], DEFAULT_COLOR), t["session_id"],
+                 t["usage_context_tokens"] or 0, windows.get(model, 0),
+                 t["created_at"], t["ended_at"] or t["created_at"]))
+
+            db.execute(
+                "INSERT INTO events (event_id, adw_id, phase_id, type, name,"
+                " payload_json, tokens, started_at) VALUES (?,?,?,?,?,?,?,?)",
+                (f"{pid_}-start", run["run_id"], pid_, "agent_start", t["agent"],
+                 json.dumps({"model": model, "thinking": t["effort"],
+                             "session_id": t["session_id"], "coding_agent": "pi",
+                             "color": COLORS.get(t["agent"], DEFAULT_COLOR),
+                             "purpose": describe(t["task"], t["agent"]),
+                             "model_source": t["model_source"],
+                             "effort_source": t["effort_source"]}),
+                 0, t["started_at"] or t["created_at"]))
+            counts["events"] += 1
+
+            for ev in db.execute(
+                    "SELECT * FROM hist.subagent_events WHERE task_id=? ORDER BY id",
+                    (pid_,)).fetchall():
+                activity = ev["activity"] or ""
+                if not activity.startswith(TOOL_PREFIXES):
+                    continue
+                label = activity.split()[0]
+                db.execute(
+                    "INSERT INTO events (event_id, adw_id, phase_id, parent_id,"
+                    " type, name, payload_json, started_at) VALUES (?,?,?,?,?,?,?,?)",
+                    (f"{pid_}-ev{ev['id']}", run["run_id"], pid_, f"{pid_}-start",
+                     "tool_call", label,
+                     json.dumps({"args": activity[:2000], "agent": t["agent"],
+                                 "result": (ev["output_preview"] or "")[:2000]}),
+                     ev["created_at"]))
+                counts["events"] += 1
+
+            usage = {"input_tokens": t["usage_input"] or 0,
+                     "output_tokens": t["usage_output"] or 0,
+                     "cache_read_tokens": t["usage_cache_read"] or 0,
+                     "cache_write_tokens": t["usage_cache_write"] or 0}
+            db.execute(
+                "INSERT INTO events (event_id, adw_id, phase_id, type, name,"
+                " payload_json, tokens, started_at, ended_at)"
+                " VALUES (?,?,?,?,?,?,?,?,?)",
+                (f"{pid_}-end", run["run_id"], pid_, "agent_end", t["agent"],
+                 json.dumps({"cost": t["usage_cost"] or 0, "usage": usage,
+                             "turns": t["usage_turns"] or 0,
+                             "context_tokens": t["usage_context_tokens"] or 0,
+                             "context_window": windows.get(model, 0),
+                             "error_category": t["error_category"]}),
+                 (t["usage_input"] or 0) + (t["usage_output"] or 0),
+                 t["started_at"] or t["created_at"], t["ended_at"]))
+            counts["events"] += 1
+
+            if t["error"]:
+                db.execute(
+                    "INSERT INTO events (event_id, adw_id, phase_id, type, name,"
+                    " payload_json, started_at) VALUES (?,?,?,?,?,?,?)",
+                    (f"{pid_}-err", run["run_id"], pid_, "error",
+                     t["error_category"] or "error",
+                     json.dumps({"error": t["error"][:4000]}), t["ended_at"]))
+                counts["events"] += 1
+
+            result = t["result"] or t["output_preview"]
+            if result:
+                db.execute(
+                    "INSERT INTO envelopes (envelope_id, adw_id, phase_id, agent,"
+                    " output_type, payload_json, valid, attempt, created_at)"
+                    " VALUES (?,?,?,?,?,?,?,?,?)",
+                    (f"{pid_}-env", run["run_id"], pid_, t["agent"],
+                     "SubagentResult",
+                     json.dumps({"summary": (t["output_preview"] or "")[:1000],
+                                 "result": result[:8000],
+                                 "status": t["status"]}),
+                     1 if t["status"] == "completed" else 0, t["attempt"] or 1,
+                     t["ended_at"] or t["created_at"]))
+
+        # Frozen gates become gate rows — the UI already renders pass/fail
+        # evidence, and this is exactly that.
+        first_phase = tasks[0]["id"] if tasks else None
+        for g in db.execute("SELECT * FROM runs.guards WHERE run_id=?",
+                            (run["run_id"],)).fetchall():
+            hits = db.execute(
+                "SELECT detail FROM runs.breaches WHERE run_id=? AND path=? AND kind='frozen_gate'",
+                (run["run_id"], g["path"])).fetchall()
+            passed = 0 if hits else 1
+            db.execute(
+                "INSERT INTO gate_results (adw_id, phase_id, attempt, gate, passed,"
+                " violations_json, checks_json, created_at) VALUES (?,?,?,?,?,?,?,?)",
+                (run["run_id"], first_phase, 1, f"frozen:{g['path']}", passed,
+                 json.dumps([h["detail"] for h in hits]),
+                 json.dumps([{"item": f"{g['path']} unchanged since freeze",
+                              "ok": bool(passed),
+                              "note": f"sha256:{(g['sha256'] or '')[:16]}"}]),
+                 g["frozen_at"]))
+            counts["gates"] += 1
+            db.execute(
+                "INSERT INTO events (event_id, adw_id, phase_id, type, name,"
+                " payload_json, started_at) VALUES (?,?,?,?,?,?,?)",
+                (f"gate-{g['guard_id']}", run["run_id"], first_phase,
+                 "gate_pass" if passed else "gate_fail", f"frozen:{g['path']}",
+                 json.dumps({"violations": [h["detail"] for h in hits]}),
+                 g["frozen_at"]))
+            counts["events"] += 1
+
+    db.commit()
+    # WAL last, and only outside a transaction: journal_mode cannot be changed
+    # while one is open, which is why setting it before executescript silently
+    # did nothing. The server polls this file and warns if it is not WAL.
+    # `main.` is required: an unqualified journal_mode pragma targets every
+    # attached database, and two of ours are attached read-only.
+    db.execute("PRAGMA main.journal_mode=WAL;")
+    db.close()
+    print(f"projection rebuilt -> {OUT}")
+    print("  " + "  ".join(f"{k}={v}" for k, v in counts.items()))
+    return counts
+
+
+def serve():
+    src = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                       "..", "vendor", "visualizer")
+    src = os.path.normpath(src)
+    if not os.path.isdir(APP):
+        if not os.path.isdir(src):
+            sys.exit(f"visualizer app not found at {src}")
+        os.makedirs(os.path.dirname(APP), exist_ok=True)
+        shutil.copytree(src, APP)
+    bun = shutil.which("bun") or os.path.expanduser("~/.bun/bin/bun")
+    if not os.path.exists(bun):
+        sys.exit("bun is required to run the UI (curl -fsSL https://bun.sh/install | bash)")
+    env = {**os.environ, "SSSF_DB": OUT, "PATH": f"{os.path.dirname(bun)}:{os.environ['PATH']}"}
+    subprocess.run([bun, "install"], cwd=APP, env=env, check=False)
+    print("\napi   http://localhost:4600\nui    http://localhost:4601\n")
+    api = subprocess.Popen([bun, "run", "server/index.ts"], cwd=APP, env=env)
+    try:
+        subprocess.run([bun, "x", "vite", "--host", "127.0.0.1"], cwd=APP, env=env)
+    finally:
+        api.terminate()
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--serve", action="store_true", help="boot the UI after rebuilding")
+    args = ap.parse_args()
+    build()
+    if args.serve:
+        serve()
