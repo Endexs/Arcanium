@@ -1,13 +1,16 @@
 # Skill: Second Opinion
 
-> **Scope.** This is the tool-level realization of `[[model-fusion]]`'s **`/opinion` mode at N=2**:
-> two families answer independently, nothing is merged. `[[model-fusion]]` owns the concepts — roster
-> and distinct-family rules, the divergence-classification table, merger guards, and the N=3 quorum
-> and tiebreaker. This file owns two things that one does not have: **when to fire** (a structural
-> checklist, because the semantic version measurably fails) and **how to call the tool**.
+> **Scope — this skill vs `[[model-fusion]]`.** They are split by job, and do not overlap:
 >
-> Escalate to `[[model-fusion]]` when you need a *single artifact* out of N models rather than a
-> decision, or when N=2 deadlocks and one contested point deserves a third family as tiebreaker.
+> | You need | Skill | Why |
+> |---|---|---|
+> | to **decide** between options | **this one** | the value is in the divergence; merging destroys it |
+> | a single **artifact** (architecture, design, plan) | `[[model-fusion]]` | you cannot act on three designs, so N≥3 merges to a quorum |
+>
+> Borrow from `[[model-fusion]]`, don't duplicate: the distinct-family rule, the
+> divergence-classification table, and the tiebreaker all apply here and are documented there.
+> Escalate to it when two answers deadlock on a point no probe can settle — its tiebreaker sends that
+> *one* contested point to a third family, which is the only sound way to break a 1-1 tie.
 
 ## Rule
 

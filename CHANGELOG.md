@@ -29,6 +29,47 @@ After project: <project-name>  (see retrospectives/<file>.md)
 
 ---
 
+## v0.17.0 — 2026-08-11
+Source: **new tooling + a measured failure.** A `second_opinion` tool now exists (two frontier
+families answer one question in parallel, read-only, both answers returned unmerged), so the
+decision-only half of fusion became a tool call rather than a documented mode — and the two skills
+were split by job.
+
+### Added
+- `quality/second-opinion` — the **decide** skill. Owns the one thing `model-fusion` never had: a
+  **structural** firing checklist (changes a public interface / schema / auth or payments path /
+  picks between viable designs / confidence below high / touches a non-negotiable path). Rationale is
+  recorded in the skill because it was measured: the same architecture decision, phrased two ways,
+  was consulted once and skipped once. The model matched the *vocabulary* of importance, not the
+  stakes. A model confident enough to answer is confident enough to skip a judgement call about its
+  own importance — but it cannot skip a checklist.
+- Rule block in `templates/CLAUDE.md.example` — a tool description grants a capability, not a
+  behaviour; the trigger has to be read every turn as an instruction.
+- Hard boundary, stated in both places: a second opinion may raise `Confidence` in
+  `[[decision-log]]`; it may never set `Validated = yes`. Two models agreeing is two guesses that
+  match. Only a probe or a passing gate moves that axis.
+
+### Changed
+- `workflow/model-fusion` scoped to **artifact production**. Its `/opinion` mode is deleted (it was
+  documentation without an implementation — `fusion-architect` has `fusion` and `--tiebreak` modes
+  only) and now points at `quality/second-opinion` for decisions. States the line that keeps a merge
+  honest: **the merger may consolidate agreement, never adjudicate disagreement.** At N=3 a majority
+  makes calling it consensus sound; at N=2 (the script's default roster) there is no majority, so
+  every divergence escalates to the human or to `--tiebreak`.
+- `workflow/gate-first-validation` now **prefers a gate the project already owns** (`just test`,
+  `pytest -q`, `npm test && tsc --noEmit`) and authors one only when none exists. An authored gate is
+  a model's idea of a test, written before the code exists.
+- `workflow/gate-first-validation` names the **asymmetry of the red baseline**: it proves a gate is
+  not too *weak*; nothing proves it is not *impossible*, because an unsatisfiable gate is red at
+  baseline and stays red — indistinguishable from a failing builder. Recorded case: an authored gate
+  stripped underscores from the text it searched, so a check for `set_based_ctes` searched for
+  `setbasedctes` and could never pass; four checks unsatisfiable, every round burned, halted RED
+  while the code was correct. Mitigation: for authored gates, name the artifact that would satisfy
+  each check before freezing — and never dismiss a builder that says the gate is wrong, since that
+  complaint is the only signal this failure mode emits.
+
+---
+
 ## v0.16.0 — 2026-07-24
 Source: **user reframe.** Fusion was mis-scoped in v0.12.0 as a *sideways* move on high-stakes forks.
 Its real, primary value is the **architecture decision at project inception** — the most expensive,

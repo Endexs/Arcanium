@@ -102,10 +102,14 @@ will catch a failure** (a frozen gate, a test suite, a type checker). No gate �
 Models are named in **one** place — the **Model roster** in the project `CLAUDE.md`. Behind a single
 gateway that's one wrapper plus a list of model ids; the skills themselves name roles, never vendors.
 
-### The two sideways skills
+### The three sideways skills
 - **`gate-first-validation`** wraps step 3 — it is not a step, it's a bracket around one.
-- **`model-fusion`** fires at step 2 on high-stakes forks only, and returns a merged answer with
-  provenance that becomes part of the plan. It costs 2–3×, so it is budgeted, not default.
+- **`model-fusion`** fires at step 2 when you need a single **artifact** (an architecture, a design)
+  out of several models, and returns a merged answer with provenance that becomes part of the plan.
+  It costs 2–3×, so it is budgeted, not default.
+- **`second-opinion`** fires whenever a load-bearing **decision** is about to be recorded — two
+  families answer, both answers come back unmerged, the agent judges. Same 2× spend, opposite output:
+  fusion collapses N answers into one, this one deliberately refuses to.
 
 ---
 

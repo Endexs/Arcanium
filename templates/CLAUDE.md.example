@@ -28,8 +28,8 @@ This project uses the following skills from `skills/` (or `~/.claude/skills/`):
 - `workflow/pm-checklist` — when spec sign-off has 5+ PM-owned decisions, use a checklist file
 - `workflow/spec-coach` — Socratic loop that auto-invokes on empty PM-owned spec sections; helps user fill blanks well without inventing
 - `workflow/gate-first-validation` — Full-tier only: author an executable acceptance gate BEFORE implementing, prove it red, freeze it (the builder may never edit it), then loop build→gate until green or halt at N=3
-- `workflow/model-fusion` — high-stakes forks only: 2–3 models from distinct families solve the same problem in parallel; an authorship-blind merger reconciles with consensus/divergence provenance. Costs 2–3×, so budget it
-- `quality/second-opinion` — two models answer a load-bearing decision independently and BOTH answers come back unmerged; trigger on the structural checklist (public interface / auth / schema / competing designs / low confidence), never on a judgement about whether it feels important
+- `workflow/model-fusion` — produces a single ARTIFACT (architecture/design/plan) from 2–3 distinct families; an authorship-blind merger reconciles with consensus/divergence provenance. The merger consolidates agreement but never adjudicates disagreement — at N=3 the majority is a quorum, at N=2 every divergence escalates to you or to `--tiebreak`. Costs 2–3×
+- `quality/second-opinion` — to DECIDE between options: two models answer independently and BOTH answers come back unmerged. Trigger on the structural checklist (public interface / auth / schema / competing designs / low confidence), never on a judgement about whether it feels important
 - `quality/good-enough-rubric` — five-question review, not perfectionism
 - `quality/adversarial-review` — separate agent hunts for bugs
 - `engineering/boring-tech` — default to widely-used, well-documented, easy-to-swap tools; justify any non-default choice in the decision log

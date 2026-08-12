@@ -25,8 +25,8 @@ The **secondary use** is any later high-stakes fork — a `[[non-negotiable-path
 — run the same way, sideways to phase planning.
 
 ## Why this exists
-Adapted from the `/fusion` and `/opinion` patterns in the fusion-harness project (external idea,
-cited for provenance). Our existing pipeline (plan → implement → review → fix) is a **relay**: each
+Adapted from the `/fusion` pattern in the fusion-harness project (external idea, cited for
+provenance — the upstream slash commands no longer exist; see the realization note below). Our existing pipeline (plan → implement → review → fix) is a **relay**: each
 model hands to the next, and no two ever solve the *same* problem independently. `[[adversarial-review]]`
 is one model *critiquing* another's output — valuable, but it inherits the first model's framing.
 Fusion is different: N models frame the problem independently, and disagreement between families is
@@ -91,14 +91,16 @@ answer presented as consensus.
 
 ## How to apply
 
-### Two modes
-- **`/opinion` (lightweight, decision-only):** N models answer the same question independently; show
-  the takes side-by-side for the human. No merge, no code. Use for a fork you'll decide yourself —
-  complements `[[decision-log]]`, which surfaces *your* agent's confidence; this adds a second
-  family's independent read. **This mode is now a tool the agent calls directly — see
-  `[[second-opinion]]` for the trigger checklist and the `second_opinion` tool that realizes it.**
-- **`/fusion` (full, with merge):** N models solve with full tools; the merger reconciles into one
-  result plus a provenance block. Use when you want a *single* answer to act on.
+### Scope: this skill merges. For a decision, don't use it
+N models solve with full tools; the merger reconciles into one result plus a provenance block. Use it
+when you need a **single artifact to act on** — an architecture, a design, a plan — because you cannot
+act on three.
+
+> **To decide between options, use `[[second-opinion]]` instead.** Two models, both answers returned
+> unmerged, the agent judges. That is a different job: a decision's value is in the *divergence*, and
+> merging destroys exactly the thing you called for. This skill previously documented that as an
+> `/opinion` mode; it now lives in `[[second-opinion]]`, which owns the trigger checklist and the
+> `second_opinion` tool. Nothing here duplicates it.
 
 ### Handling the divergences — classify, then route (the divergences ARE the value)
 Surfacing disagreement is the floor, not the handling. Two models were run precisely so they would
@@ -141,18 +143,26 @@ model you didn't choose — deliberate, because this is the highest-stakes decis
 **Degraded?**: no | "fused from 2 of 3; <model> unavailable"
 ```
 With **N=3** the merge is a **quorum**: majority = consensus, the minority take is *preserved and
-flagged for the human* (not deleted), and a genuine tiebreak exists. With N=2 you get only
-agree/disagree — surface the disagreement to the human rather than having the merger pick a winner.
+flagged for the human* (not deleted), and a genuine tiebreak exists.
+
+**The merger may consolidate agreement; it may never adjudicate disagreement.** That line is what
+keeps a merge honest, and it is why N matters:
+- **N≥3** — a majority exists, so calling the majority position consensus is sound. The minority is
+  preserved and flagged, never deleted.
+- **N=2** (the script's default roster) — there is no majority to have. Every divergence escalates as
+  `HUMAN DECISION NEEDED` or to `--tiebreak`; the merger consolidates only what both models already
+  agreed on. A merger that picks a winner at N=2 is guessing, and presenting that as fusion is the
+  failure this skill exists to prevent.
+
+If what you need is the *decision* rather than the artifact, don't merge at all — use
+`[[second-opinion]]` and judge the two answers yourself.
 
 ### How it's realized
-For the **N=2 decision-only mode**, the agent calls the `second_opinion` tool (two families answer in
-parallel, read-only, both answers returned unmerged in a fixed comparable shape). That is the whole
-of `/opinion` for N=2 and needs no roster file. See `[[second-opinion]]`.
-
-> Provenance note: the upstream fusion-harness `/fusion` and `/opinion` **slash commands no longer
-> exist** — that project was reduced to the single `second_opinion` tool, and its `/fusion` merge was
-> removed for the reason this skill already encodes at N=2 (a merger cannot access which answer is
-> true, so it rewards the more confident one). Cite the pattern, not the commands.
+> Provenance note: upstream fusion-harness was reduced to a single `second_opinion` tool and its
+> `/fusion` merge was **removed** — for the reason this skill already encodes at N=2 (a merger cannot
+> access which answer is true, so it rewards the more confident one). Our merge survives because it is
+> scoped to N≥3, where it is a *quorum* with a preserved minority and a real tiebreaker, and because it
+> produces an artifact rather than adjudicating a decision. Cite the pattern, not the commands.
 
 For the **inception architecture fusion**, use `.claude/bin/fusion-architect <spec>` — it fans the
 `FUSION_MODELS` out over `omni-send` (true cross-vendor, which the Workflow tool cannot do — its
