@@ -95,7 +95,8 @@ answer presented as consensus.
 - **`/opinion` (lightweight, decision-only):** N models answer the same question independently; show
   the takes side-by-side for the human. No merge, no code. Use for a fork you'll decide yourself —
   complements `[[decision-log]]`, which surfaces *your* agent's confidence; this adds a second
-  family's independent read.
+  family's independent read. **This mode is now a tool the agent calls directly — see
+  `[[second-opinion]]` for the trigger checklist and the `second_opinion` tool that realizes it.**
 - **`/fusion` (full, with merge):** N models solve with full tools; the merger reconciles into one
   result plus a provenance block. Use when you want a *single* answer to act on.
 
@@ -144,6 +145,15 @@ flagged for the human* (not deleted), and a genuine tiebreak exists. With N=2 yo
 agree/disagree — surface the disagreement to the human rather than having the merger pick a winner.
 
 ### How it's realized
+For the **N=2 decision-only mode**, the agent calls the `second_opinion` tool (two families answer in
+parallel, read-only, both answers returned unmerged in a fixed comparable shape). That is the whole
+of `/opinion` for N=2 and needs no roster file. See `[[second-opinion]]`.
+
+> Provenance note: the upstream fusion-harness `/fusion` and `/opinion` **slash commands no longer
+> exist** — that project was reduced to the single `second_opinion` tool, and its `/fusion` merge was
+> removed for the reason this skill already encodes at N=2 (a merger cannot access which answer is
+> true, so it rewards the more confident one). Cite the pattern, not the commands.
+
 For the **inception architecture fusion**, use `.claude/bin/fusion-architect <spec>` — it fans the
 `FUSION_MODELS` out over `omni-send` (true cross-vendor, which the Workflow tool cannot do — its
 subagents are one family), strips authorship, shuffles order, merges with the `MERGER`, and writes

@@ -1,5 +1,14 @@
 # Skill: Second Opinion
 
+> **Scope.** This is the tool-level realization of `[[model-fusion]]`'s **`/opinion` mode at N=2**:
+> two families answer independently, nothing is merged. `[[model-fusion]]` owns the concepts — roster
+> and distinct-family rules, the divergence-classification table, merger guards, and the N=3 quorum
+> and tiebreaker. This file owns two things that one does not have: **when to fire** (a structural
+> checklist, because the semantic version measurably fails) and **how to call the tool**.
+>
+> Escalate to `[[model-fusion]]` when you need a *single artifact* out of N models rather than a
+> decision, or when N=2 deadlocks and one contested point deserves a third family as tiebreaker.
+
 ## Rule
 
 > Before recording a decision that changes a public interface, a schema, an auth/authz or payments path, or that picks between viable designs — call the `second_opinion` tool. Check the trigger list; do not first judge whether the decision is "important enough". Being able to answer it yourself is not a reason to skip it.
@@ -43,7 +52,8 @@ The models cannot see your conversation. State the options under consideration, 
 Both answers come back in a fixed shape: RECOMMENDATION / WHY / KEY RISKS / WHAT WOULD CHANGE MY MIND / CONFIDENCE.
 
 - **They agree** → two independent votes, not proof. Both may share a training blind spot. Proceed, and note in the decision entry that agreement was cheap.
-- **They disagree** → this is the finding. Diff the two **WHAT WOULD CHANGE MY MIND** sections. They identify the assumption the two models actually differ on, and that assumption is usually the real decision. Resolve it with a probe if one exists — that converts opinion into ground truth.
+- **They disagree** → this is the finding. Diff the two **WHAT WOULD CHANGE MY MIND** sections. They identify the assumption the two models actually differ on, and that assumption is usually the real decision. Then classify the divergence using `[[model-fusion]]`'s table — a **factual** split is settled by reading the code, an **empirical** one by the cheapest probe (`[[feasibility-first]]`), and only a genuine **values call** goes to the user. Resolving it with a probe is the only move that converts opinion into ground truth.
+- **They deadlock on something you cannot probe** → do not average and do not flip a coin. Escalate that *one* contested point to a third family per `[[model-fusion]]`'s tiebreaker, which converts N=2 to N=3 for that decision alone.
 - **One failed** → you have one opinion, not two. Say so; do not present it as corroborated.
 
 Never average the two into a mushy middle. Decide, and record what the rejected option was better at.

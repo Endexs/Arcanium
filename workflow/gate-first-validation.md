@@ -27,17 +27,41 @@ retry loop that silently burns the token budget.
 
 ## How to apply
 
-### 1. Author the gate first — and make it executable
-A validator agent (a different roster slot than the builder — see `[[model-fusion]]` for the roster
-convention) reads the spec/plan and writes a gate that **runs and returns binary pass/fail**:
-a test file, a CLI assertion, a `curl … | grep`, a script that exits non-zero on failure. Prose
-acceptance criteria do **not** count — if it can't be executed by a machine, it isn't a gate.
+### 1. Get the gate first — and make it executable
+
+**Prefer a gate the project already owns.** `just test`, `pytest -q`, `npm test && tsc --noEmit`, a
+make target — extended with the specific assertions this task needs. A command that already runs your
+real code cannot be unsatisfiable, is already trusted by CI, and costs nothing to author.
+
+Only when no such command exists does a validator agent (a different roster slot than the builder —
+see `[[model-fusion]]` for the roster convention) read the spec/plan and **author** a gate that
+**runs and returns binary pass/fail**: a test file, a CLI assertion, a `curl … | grep`, a script that
+exits non-zero on failure. Prose acceptance criteria do **not** count — if it can't be executed by a
+machine, it isn't a gate.
+
+An authored gate is a model's *idea* of a test, written before the code exists, and it carries a
+failure mode a project-owned command does not — see the unsatisfiable-gate guard in step 2.
 
 ### 2. Prove the baseline is red — this step is load-bearing
 Run the gate against the current code. It **must fail**.
 - A **green baseline is a broken gate**: it tests nothing, or the work already exists. Stop and
   redesign the gate — do not proceed.
 - Red baseline is the only thing that makes the eventual green *mean* something.
+
+**The red baseline is asymmetric — know what it does not prove.** It catches a gate that is too
+*weak*. Nothing in this loop catches a gate that is *impossible*, because an unsatisfiable gate is red
+at baseline and stays red — indistinguishable from a builder that keeps failing.
+
+> Recorded failure (upstream fusion-harness, the source of this pattern): an authored gate stripped
+> underscores from the text it searched before matching, so a required check for `set_based_ctes`
+> searched for `setbasedctes` and could never match. Four checks were unsatisfiable. The loop burned
+> every correction round and halted RED while the code under test had been correct throughout.
+
+So, for an **authored** gate only, add one step before freezing: walk each check and confirm it *can*
+pass — name the concrete artifact or output that would satisfy it. A check nobody can describe passing
+is unsatisfiable. This is also why step 3's escalate-to-human rule exists: when the builder says the
+gate is wrong, that is the only signal this failure mode ever produces, so it must never be dismissed
+as the builder making excuses.
 
 Encode the red-baseline requirement as a hard check, not a hope:
 
