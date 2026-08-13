@@ -74,9 +74,12 @@ PHASE 0 — INCEPTION (once, at project start — the most critical decision)
         ↓
 2. PLAN         planner         agents/planner/phaseN-plan.md
                                 + decision-log entries + scope-cut-list
-                                ↳ high-stakes fork? → model-fusion (sideways, not inline)
+                                ↳ load-bearing DECISION? → second-opinion (before logging it)
+                                ↳ need a whole design ARTIFACT? → model-fusion (sideways)
         ↓
-  ─ GATE ─      validator       gate-first-validation: author gate, prove RED, freeze
+  ─ GATE ─      validator       gate-first-validation: prefer the project's own command
+                                (just test / pytest); author one only if none exists,
+                                then prove RED and freeze
         ↓
 3. IMPLEMENT    implementer     code — reads the plan file
                                 implementer-handoff blocks; mind the thinking-token floor
