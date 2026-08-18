@@ -13,13 +13,29 @@ about this package comes from conflating them.
 
 ## ⚠️ First, the thing that confuses everyone
 
-**Arcanium's skills are not active while you edit Arcanium.**
+**Editing a skill here changes nothing until you install it somewhere.** There are two install
+targets and they are independent — confusing them is the single most common mistake:
 
-This repo has no root `CLAUDE.md` and no `.claude/`. Skills are **vendored and frozen** into each
-generated project at bootstrap — they are not a global install. So the package you are editing has
-no effect on the session you are editing it in, and a change here does **not** propagate to any
-existing project (that's deliberate: a v0.12.0 change shouldn't retroactively break a project that
-worked under v0.11.0). To re-sync one project on purpose:
+| Target | Command | Effect |
+|---|---|---|
+| **Per project** (vendored, frozen) | `arcanium-new` at bootstrap, or `install.sh --local <proj> --force` | copied into `<proj>/skills/`; a change here does **not** propagate to existing projects — deliberate, so a v0.12.0 change can't retroactively break a project that worked under v0.11.0 |
+| **Your pi sessions** (global, live) | `install.sh --pi --force` | converted into `~/.pi/agent/skills/` and injected into **every pi session's system prompt** — including the one you're editing this package in |
+
+So this repo still has no root `CLAUDE.md` and no `.claude/`, and vendored project copies are still
+frozen at their bootstrap version. But if you have ever run `install.sh --pi`, the skills **are**
+active in your sessions, and they are stale until you re-run it. Check what your session actually
+sees before assuming:
+
+```bash
+ls ~/.pi/agent/skills/*/          # what is installed globally, if anything
+./install.sh --pi --force         # re-sync it to this repo's current version
+```
+
+A stale global install is silent and expensive: the agent is told the old rule every turn. This bit
+us at v0.17.0 — `~/.pi/agent/skills/` was still telling every session to author its own acceptance
+gate and to route high-stakes forks to `model-fusion`, weeks after both rules had changed here.
+
+To re-sync one project on purpose:
 
 ```bash
 ./install.sh --local /path/to/project --force

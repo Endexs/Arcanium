@@ -14,9 +14,7 @@
 
 ## Rule
 
-> Before recording a decision that changes a public interface, a schema, an auth/authz or payments path, or that picks between viable designs — call the `second_opinion` tool. Check the trigger list; do not first judge whether the decision is "important enough". Being able to answer it yourself is not a reason to skip it.
-
-> `second_opinion` is **opinion, not validation**. It never satisfies `Validated = yes` in `workflow/decision-log`. Two models agreeing is two guesses that match, not evidence the thing works.
+Before recording a decision that changes a public interface, a schema, an auth/authz or payments path, or that picks between viable designs, call the `second_opinion` tool. Check the trigger list; do not first judge whether the decision is important enough. Being able to answer it yourself is not a reason to skip it. `second_opinion` is opinion, not validation: it never satisfies `Validated = yes` in `[[decision-log]]`, because two models agreeing is two guesses that match, not evidence the thing works.
 
 ## Why this exists
 
