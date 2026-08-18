@@ -42,7 +42,7 @@ machine, it isn't a gate.
 An authored gate is a model's *idea* of a test, written before the code exists, and it carries a
 failure mode a project-owned command does not — see the unsatisfiable-gate guard in step 2.
 
-### 2. Prove the baseline is red — this step is load-bearing
+### 2. Prove the baseline is red — skipping this invalidates the whole loop
 Run the gate against the current code. It **must fail**.
 - A **green baseline is a broken gate**: it tests nothing, or the work already exists. Stop and
   redesign the gate — do not proceed.

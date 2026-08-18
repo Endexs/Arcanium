@@ -22,6 +22,30 @@ Skills are vendored into `./skills/` at bootstrap time — fully self-contained,
 - `skills/process/compact-or-clear` — tells you when to `/clear` vs `/compact` vs keep going, so long sessions don't bleed tokens + latency
 - `skills/lifecycle/persist-load-bearing-findings` — a live-incident root cause or operational gotcha gets written to CLAUDE.md/memory in the SAME turn it's discovered, not just explained in chat
 
+### Precedence when `APPEND_SYSTEM_PROMPT` is active
+The appended communication prompt's **Hard Operational Boundaries win** over any skill that would
+widen scope on its own. Skills that produce artifacts (`decision-log`, `scope-cut-list`,
+`persist-load-bearing-findings`, `retrospective`) fire **only when the workflow step calls for
+them** — producing them then is the requested scope, not widening. The agent does not volunteer
+cleanup, refactoring, or documentation outside a step that asked for it.
+
+**Reporting is never widening.** If you notice a defect outside the current scope, state it in one
+line and continue. Do not fix it, do not investigate it, do not open a section about it. The
+boundary exists to stop gold-plating, not to suppress signal.
+
+**On the phrase "load-bearing":** the prompt bans it, because it is usually a vague intensifier for
+"important". It survives in this package only as a defined term with a test attached, in exactly
+three places:
+- `feasibility-first` — a *load-bearing external dependency* is one whose absence makes the project
+  pointless.
+- `non-negotiable-paths` — a *load-bearing invariant* is a condition that gets `raise RuntimeError`,
+  never `assert`.
+- `decision-log` — the *validated-and-load-bearing override*.
+
+Anywhere else, say what you mean: expensive to reverse, critical path, or just important. Skill
+filenames and `[[wikilinks]]` keep the term as an identifier; renaming them would be the widening
+this section forbids.
+
 ### Active for medium+ changes
 - `skills/engineering/implementer-handoff` — every implementer LLM call must include Names-in-scope, Library-gotchas, Output-budget blocks
 - `skills/workflow/decision-log` — surface decisions with confidence + reversibility
@@ -33,7 +57,7 @@ Skills are vendored into `./skills/` at bootstrap time — fully self-contained,
 - `skills/quality/security-review` — for any project with a public attack surface + money/auth/PII: a dedicated threat-model pass (authz/IDOR, cookie/CSRF hardening, injection, secret leakage), distinct from adversarial-review and a hard gate before go-live. Run `/security-review` or a per-domain agent fan-out
 - `skills/workflow/gate-first-validation` — Full-tier work only: author an executable acceptance gate BEFORE implementing, prove it fails red, freeze it (the builder may never edit it), then loop build→gate until green or halt after N=3. Runs before adversarial-review, not instead of it
 - `skills/workflow/model-fusion` — for a single **artifact**. **Primary use: run FIRST, on the architecture** (Phase 0 above), via `.claude/bin/fusion-architect` — 2–3 models from **distinct families** design independently, an authorship-blind merger reconciles with consensus/divergence/`HUMAN DECISION NEEDED` provenance. The merger consolidates agreement but never adjudicates disagreement: at N=2 every divergence escalates to you or to `--tiebreak`. Costs 2–3×; fuse on HOW, never WHAT (frame the spec first). Roster in the Model roster block below
-- `skills/quality/second-opinion` — for a **decision**, not an artifact. Call the `second_opinion` tool before recording any load-bearing decision (public interface / schema / auth or payments path / competing designs / confidence below high / a `[[non-negotiable-paths]]` path). Two families answer independently and **both answers come back unmerged** — the divergence is the finding. Raises `Confidence` in the decision log; never sets `Validated = yes`
+- `skills/quality/second-opinion` — for a **decision**, not an artifact. Call the `second_opinion` tool before recording any decision that is expensive to reverse (public interface / schema / auth or payments path / competing designs / confidence below high / a `[[non-negotiable-paths]]` path). Two families answer independently and **both answers come back unmerged** — the divergence is the finding. Raises `Confidence` in the decision log; never sets `Validated = yes`
 - `skills/engineering/disable-flag-both-paths` — any disable/enable mechanism (feature flag, TTL=0, `--dry-run`) applies to every path it affects, not just the obvious one
 - `skills/engineering/boring-tech` — default to widely-used, well-documented, easy-to-swap tools; justify any non-default choice in the decision log
 - `skills/workflow/feasibility-first` — before committing to a new external dependency the project's value hinges on, run the cheapest probe to confirm it's usable before building around it
@@ -67,7 +91,7 @@ When working on or reviewing `spec/spec.md`, treat empty sections as **gaps to f
 
 - Confabulated §1s ("This is a tool that does <plausible-sounding thing>")
 - Invented user stories the user didn't validate
-- Made-up non-negotiables that become load-bearing in code
+- Made-up non-negotiables that later constrain code nobody meant to constrain
 - Phase plans built on quiet inventions; errors compound silently and surface at Phase 3
 
 ### Related skills
@@ -129,6 +153,14 @@ MODEL_TIERS:              # routing ladder — see skills/workflow/model-routing
 
 REVIEW_MODEL: claude/claude-opus-5        # when the implementer was T1 or T2 (OpenAI)
 REVIEW_MODEL_IF_T3_IMPLEMENTED: openai/gpt-5.6-sol
+
+APPEND_SYSTEM_PROMPT:     # per-model, appended to (not replacing) the agent's own prompt
+  claude/claude-opus-5: .claude/prompts/sr_opus_5_system_prompt.md
+  # Applies wherever opus-5 runs: T3 and REVIEW_MODEL. Constrains verbosity, bans hedging
+  # and filler, and sets hard scope boundaries. Launch with:
+  #   pi --model claude/claude-opus-5 --append-system-prompt .claude/prompts/sr_opus_5_system_prompt.md
+  # Source: github.com/disler/fixing-smartass-opus-5. Note the provider prefix is claude/,
+  # not anthropic/ as that repo's justfile uses; anthropic/ does not resolve here.
   # TWO review pins, because "Review: ≥ implementer tier, DIFFERENT family" depends on WHICH tier
   # actually implemented — and on non-negotiable paths that is T3, not T2.
   #   implementer T1/T2 (OpenAI)  → review with claude/claude-opus-5      ✓ different family

@@ -41,7 +41,7 @@ From cortex.walker:
   # NOTE: function is walk_sources, NOT walk.
 ```
 
-The `# NOTE:` lines are load-bearing. They pre-empt the names the implementer is most likely to guess from training-data priors. If the implementer has hallucinated `chunk_file` once, add the negative assertion — *"There is no chunk_file"* — to the block. Negative assertions catch the failure mode in a way that positive listings don't.
+Do not drop the `# NOTE:` lines. They pre-empt the names the implementer is most likely to guess from training-data priors. If the implementer has hallucinated `chunk_file` once, add the negative assertion — *"There is no chunk_file"* — to the block. Negative assertions catch the failure mode in a way that positive listings don't.
 
 ### Block 2: Library gotchas
 

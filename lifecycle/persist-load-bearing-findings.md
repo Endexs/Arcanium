@@ -6,6 +6,12 @@ incident's root cause, a non-obvious operational constraint, an environment quir
 hard way — write it to `CLAUDE.md` or memory **before ending that turn**. Explaining it well in
 the chat response does not count. Chat text does not survive `/clear`; only files do.
 
+**Bounded write.** This is the one skill that edits a file nobody asked you to edit, so it is capped:
+append one line (two if the fix needs a command), in the existing section, in the existing format.
+No restructuring, no reformatting, no adjacent tidying, no new sections. Then say in your response
+that you wrote it and where. If the finding needs a paragraph to explain, it is a retrospective
+entry, not a memory line.
+
 ## Why this exists
 On airbnb-website, an agent found a process bound to the app's port, assumed it was a stray dev
 process, killed it, and restarted it with the local dev launcher instead of the real

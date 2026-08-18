@@ -95,7 +95,12 @@ Same as medium, but with split-run partitioning per `process/split-run-implement
 ### For non-negotiable paths
 Full pipeline regardless of size. See `quality/non-negotiable-paths.md`.
 
-### Before recording any load-bearing decision
+### Scope boundary when an appended communication prompt is active
+Its Hard Operational Boundaries win over any skill that would widen scope on its own. Skills that produce artifacts (`decision-log`, `scope-cut-list`, `retrospective`) fire only when the workflow step calls for them; producing them then is the requested scope. `persist-load-bearing-findings` is capped at a one-line append.
+
+**Reporting is never widening.** If you notice a defect outside scope, state it in one line and continue. Do not fix it, do not investigate it, do not open a section about it.
+
+### Before recording any decision that is expensive to reverse
 Call the `second_opinion` tool when the decision changes a public interface, schema, auth/authz or payments path; picks between viable designs or migration strategies; would be costly to undo; or when your own confidence is below high. **Check that list — do not first decide whether the decision is "important enough"; that judgement is exactly what gets skipped.** Being able to answer it yourself is not a reason to skip it.
 
 Read the two answers by diffing their **WHAT WOULD CHANGE MY MIND** sections — that is where the real disagreement lives. Never average them. A second opinion raises `Confidence` in the decision log; it never sets `Validated = yes`, because two models agreeing is two guesses that match, not evidence. See `quality/second-opinion.md`.

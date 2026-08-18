@@ -43,7 +43,7 @@ Source: user feedback during Arcanium v0.5.x usage — *"me just writing it by m
 ### Sniff test for "tight enough to plan against"
 
 A PM-owned section is tight enough when an implementer reading it cold could:
-- §1: name the project's load-bearing job in one sentence
+- §1: name the one job the project must do, in one sentence
 - §2: identify the first thing a user does and the result they expect
 - §6: list at least one specific constraint that would fail a build
 - §8: state a measurable signal for "we shipped"

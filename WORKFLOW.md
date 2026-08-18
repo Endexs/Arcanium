@@ -90,7 +90,7 @@ PHASE 0 — INCEPTION (once, at project start — the most critical decision)
         ↓
 2. PLAN         planner         agents/planner/phaseN-plan.md
                                 + decision-log entries + scope-cut-list
-                                ↳ load-bearing DECISION? → second-opinion (before logging it)
+                                ↳ DECISION that is costly to undo? → second-opinion (before logging it)
                                 ↳ need a whole design ARTIFACT? → model-fusion (sideways)
         ↓
   ─ GATE ─      validator       gate-first-validation: prefer the project's own command
@@ -126,7 +126,7 @@ gateway that's one wrapper plus a list of model ids; the skills themselves name 
 - **`model-fusion`** fires at step 2 when you need a single **artifact** (an architecture, a design)
   out of several models, and returns a merged answer with provenance that becomes part of the plan.
   It costs 2–3×, so it is budgeted, not default.
-- **`second-opinion`** fires whenever a load-bearing **decision** is about to be recorded — two
+- **`second-opinion`** fires whenever a **decision** that is costly to undo is about to be recorded — two
   families answer, both answers come back unmerged, the agent judges. Same 2× spend, opposite output:
   fusion collapses N answers into one, this one deliberately refuses to.
 

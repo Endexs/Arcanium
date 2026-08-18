@@ -71,7 +71,7 @@ Default: audit every 3 retrospectives. Adjust based on package velocity:
 
 ### Things NOT to use as audit criteria
 
-- **Raw token count** — small skills can be load-bearing (a one-line rule preventing a catastrophic bug class earns its rent regardless of length)
+- **Raw token count** — small skills can still be the ones that matter (a one-line rule preventing a catastrophic bug class earns its rent regardless of length)
 - **"I haven't re-read it lately"** — some skills are reference checklists, not prose for re-reading
 - **Polish or word count** — how long or pretty the file is doesn't track value
 - **Whether it fired in the most recent project** — single-project gaps are noise; the 3-project window is the smoothing
