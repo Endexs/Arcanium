@@ -141,8 +141,12 @@ MERGER: claude/claude-fable-5             # sees candidates with authorship stri
 PER_MODEL_OVERRIDES:      # the gateway unifies the endpoint, NOT the params
   claude/claude-fable-5:    { max_tokens: 65536, temperature: 0.2 }
   claude/claude-opus-4-8:   { max_tokens: 65536, temperature: 0.2 }
-  deepseek/deepseek-v4-pro: { max_tokens: 65536, temperature: 0.2 }
+  claude/claude-opus-5:     { max_tokens: 65536, temperature: 0.2 }   # REVIEW_MODEL
+  claude/claude-sonnet-5:   { max_tokens: 65536, temperature: 0.2 }
+  claude/claude-haiku-4-5-20251001: { max_tokens: 65536, temperature: 0.2 }   # T1
+  deepseek/deepseek-v4-pro: { max_tokens: 65536, temperature: 0.2 }   # unused by the current roster
   openai/gpt-5.6-sol:       { max_tokens: 65536 }   # reasoning model: NO temperature (rejects it)
+  openai/gpt-5.6-terra:     { max_tokens: 65536 }   # T2 implementer — reasoning model, NO temperature
 ```
 
 **This roster runs at N=2**, so there is no quorum and no tiebreak — you get agree/disagree only.
