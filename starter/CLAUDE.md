@@ -104,7 +104,7 @@ never presents a single-model answer as fusion. See `skills/workflow/model-fusio
 | Plan | **T3** | `agents/planner/phaseN-plan.md` |
 | Gate author | **≥ implementer tier** | the frozen acceptance gate |
 | Implement | **T2** (T1 only if verifiable + non-critical; T3 on non-negotiable paths) | code |
-| Review | **`REVIEW_MODEL`** — ≥ implementer tier, different family (the ladder is single-family now, so this is pinned separately in the roster) | `agents/reviewer/phaseN-review.md` |
+| Review | **`REVIEW_MODEL`** — ≥ implementer tier, different family (pinned in the roster; opus-5 is not a tier) | `agents/reviewer/phaseN-review.md` |
 | Fix | **T1** | code (`.claude/agents/fixer.md`) |
 
 These are **floors**, not fixed assignments — `skills/workflow/model-routing` picks the actual tier
@@ -124,15 +124,14 @@ curl -s http://localhost:20128/v1/models | jq -r '.data[].id' | sort
 ```
 MODEL_TIERS:              # routing ladder — see skills/workflow/model-routing
   T1: claude/claude-haiku-4-5-20251001    # cheap/fast — mechanical, specified, verifiable
-  T2: claude/claude-sonnet-5              # mid — normal work against a clear plan (the implementer)
+  T2: openai/gpt-5.6-terra                # mid — normal work against a clear plan (the implementer)
   T3: claude/claude-opus-4-8              # frontier — reasoning, ambiguity, critical paths
 
-REVIEW_MODEL: openai/gpt-5.6-sol
-  # ⚠ REQUIRED, and pinned OUTSIDE the ladder on purpose. Review must be "≥ implementer tier,
-  # DIFFERENT family" — but T1/T2/T3 are now all Anthropic, so the ladder can no longer satisfy
-  # that rule on its own. An Anthropic reviewer checking Anthropic code shares its blind spots,
-  # which is the one thing adversarial-review exists to prevent. Change T2 back to a non-Anthropic
-  # model and this pin becomes optional again.
+REVIEW_MODEL: claude/claude-opus-5
+  # Pinned outside the ladder because opus-5 is not a tier. The family rule ("Review: ≥ implementer
+  # tier, DIFFERENT family") is now satisfied by construction: the implementer is OpenAI and the
+  # reviewer is Anthropic, so an adversarial review can never be a model checking its own family's
+  # blind spots. Keep that property if you change either slot.
 
 FUSION_MODELS:            # 2-3 slots, each a DIFFERENT family (see the family rule below)
   - claude/claude-fable-5                 # Anthropic
