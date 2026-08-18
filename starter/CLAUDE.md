@@ -104,7 +104,7 @@ never presents a single-model answer as fusion. See `skills/workflow/model-fusio
 | Plan | **T3** | `agents/planner/phaseN-plan.md` |
 | Gate author | **≥ implementer tier** | the frozen acceptance gate |
 | Implement | **T2** (T1 only if verifiable + non-critical; T3 on non-negotiable paths) | code |
-| Review | **`REVIEW_MODEL`** — ≥ implementer tier, different family (pinned in the roster; opus-5 is not a tier) | `agents/reviewer/phaseN-review.md` |
+| Review | **`REVIEW_MODEL`** — ≥ implementer tier, different family. If **T3** did the implementing (non-negotiable paths), use **`REVIEW_MODEL_IF_T3_IMPLEMENTED`** instead: T3 and the default reviewer are the same model, and it cannot grade itself | `agents/reviewer/phaseN-review.md` |
 | Fix | **T1** | code (`.claude/agents/fixer.md`) |
 
 These are **floors**, not fixed assignments — `skills/workflow/model-routing` picks the actual tier
@@ -125,13 +125,17 @@ curl -s http://localhost:20128/v1/models | jq -r '.data[].id' | sort
 MODEL_TIERS:              # routing ladder — see skills/workflow/model-routing
   T1: claude/claude-haiku-4-5-20251001    # cheap/fast — mechanical, specified, verifiable
   T2: openai/gpt-5.6-terra                # mid — normal work against a clear plan (the implementer)
-  T3: claude/claude-opus-4-8              # frontier — reasoning, ambiguity, critical paths
+  T3: claude/claude-opus-5                # frontier — reasoning, ambiguity, critical paths
 
-REVIEW_MODEL: claude/claude-opus-5
-  # Pinned outside the ladder because opus-5 is not a tier. The family rule ("Review: ≥ implementer
-  # tier, DIFFERENT family") is now satisfied by construction: the implementer is OpenAI and the
-  # reviewer is Anthropic, so an adversarial review can never be a model checking its own family's
-  # blind spots. Keep that property if you change either slot.
+REVIEW_MODEL: claude/claude-opus-5        # when the implementer was T1 or T2 (OpenAI)
+REVIEW_MODEL_IF_T3_IMPLEMENTED: openai/gpt-5.6-sol
+  # TWO review pins, because "Review: ≥ implementer tier, DIFFERENT family" depends on WHICH tier
+  # actually implemented — and on non-negotiable paths that is T3, not T2.
+  #   implementer T1/T2 (OpenAI)  → review with claude/claude-opus-5      ✓ different family
+  #   implementer T3   (opus-5)   → review with claude/claude-opus-5      ✗ SAME MODEL grading itself
+  #                               → so review with openai/gpt-5.6-sol instead ✓
+  # Without the second pin the guard fails exactly where it matters most: auth, money, and data
+  # paths are the ones routed to T3. A model cannot find the bug its own reasoning just produced.
 
 FUSION_MODELS:            # 2-3 slots, each a DIFFERENT family (see the family rule below)
   - claude/claude-fable-5                 # Anthropic
@@ -140,7 +144,7 @@ MERGER: claude/claude-fable-5             # sees candidates with authorship stri
 
 PER_MODEL_OVERRIDES:      # the gateway unifies the endpoint, NOT the params
   claude/claude-fable-5:    { max_tokens: 65536, temperature: 0.2 }
-  claude/claude-opus-4-8:   { max_tokens: 65536, temperature: 0.2 }
+  claude/claude-opus-4-8:   { max_tokens: 65536, temperature: 0.2 }   # unused by the current roster
   claude/claude-opus-5:     { max_tokens: 65536, temperature: 0.2 }   # REVIEW_MODEL
   claude/claude-sonnet-5:   { max_tokens: 65536, temperature: 0.2 }
   claude/claude-haiku-4-5-20251001: { max_tokens: 65536, temperature: 0.2 }   # T1
