@@ -104,7 +104,7 @@ never presents a single-model answer as fusion. See `skills/workflow/model-fusio
 | Plan | **T3** | `agents/planner/phaseN-plan.md` |
 | Gate author | **≥ implementer tier** | the frozen acceptance gate |
 | Implement | **T2** (T1 only if verifiable + non-critical; T3 on non-negotiable paths) | code |
-| Review | **≥ implementer tier, different family** | `agents/reviewer/phaseN-review.md` |
+| Review | **`REVIEW_MODEL`** — ≥ implementer tier, different family (the ladder is single-family now, so this is pinned separately in the roster) | `agents/reviewer/phaseN-review.md` |
 | Fix | **T1** | code (`.claude/agents/fixer.md`) |
 
 These are **floors**, not fixed assignments — `skills/workflow/model-routing` picks the actual tier
@@ -124,8 +124,15 @@ curl -s http://localhost:20128/v1/models | jq -r '.data[].id' | sort
 ```
 MODEL_TIERS:              # routing ladder — see skills/workflow/model-routing
   T1: claude/claude-haiku-4-5-20251001    # cheap/fast — mechanical, specified, verifiable
-  T2: deepseek/deepseek-v4-pro            # mid — normal work against a clear plan
+  T2: claude/claude-sonnet-5              # mid — normal work against a clear plan (the implementer)
   T3: claude/claude-opus-4-8              # frontier — reasoning, ambiguity, critical paths
+
+REVIEW_MODEL: openai/gpt-5.6-sol
+  # ⚠ REQUIRED, and pinned OUTSIDE the ladder on purpose. Review must be "≥ implementer tier,
+  # DIFFERENT family" — but T1/T2/T3 are now all Anthropic, so the ladder can no longer satisfy
+  # that rule on its own. An Anthropic reviewer checking Anthropic code shares its blind spots,
+  # which is the one thing adversarial-review exists to prevent. Change T2 back to a non-Anthropic
+  # model and this pin becomes optional again.
 
 FUSION_MODELS:            # 2-3 slots, each a DIFFERENT family (see the family rule below)
   - claude/claude-fable-5                 # Anthropic
